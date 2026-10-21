@@ -4,9 +4,7 @@
 **/coverage
 **/test-results
 **/playwright-report
-**/.env
-**/.env.local
-**/.env.*.local
+**/.env*
 .git
 .serena
 dev-plan/*.pdf

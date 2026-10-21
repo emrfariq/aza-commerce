@@ -80,14 +80,48 @@ tetap 3000 dan port frontend E2E tetap 3100.
 - [x] Implementasi E2E Playwright dan test desktop/mobile terverifikasi lokal.
 - [x] Workflow GitHub Actions lint/test/build/E2E disediakan.
 - [x] Dockerfile dua service dan Compose full stack disediakan; config valid.
-- [ ] Build/run container full stack: tertahan DNS Docker Desktop.
+- [x] Build image dan jalankan ketiga container full stack hingga healthy.
+- [x] Smoke test API dan browser pada deployment Docker, termasuk session restore/logout.
 - [ ] Grafik penjualan harian (opsional, tidak dikerjakan).
 - [ ] Export CSV/Excel (opsional, tidak dikerjakan).
 
-Percobaan `docker compose build backend frontend` berhenti saat menarik
-`node:24-bookworm-slim`: `lookup registry-1.docker.io: no such host`.
-Tidak mengklaim image build atau full-stack container sudah berjalan. Database Docker
-existing sehat dan dipakai semua verifikasi lokal. CI GitHub belum dijalankan di remote.
+Percobaan awal build tertahan DNS `registry-1.docker.io`. Pada percobaan berikutnya DNS
+sudah pulih dan base image `node:24-bookworm-slim` berhasil diunduh. Build pertama melewati
+batas waktu karena mengunduh dependency seluruh monorepo untuk kedua image.
+
+Perbaikan Docker yang disiapkan:
+
+- Install dependency dibatasi per service melalui filter pnpm.
+- Cache dependency BuildKit disimpan terpisah dari layer source agar dapat dipakai ulang.
+- Image hanya menyalin source service terkait; file environment lokal dikecualikan.
+- Healthcheck frontend ditambahkan agar Compose menunggu halaman login siap.
+
+Percobaan build berikutnya mengalami `rpc error ... EOF`, lalu Docker Desktop berhenti.
+Pemeriksaan host menunjukkan drive C tersisa sekitar 36 MB, sedangkan D masih memiliki
+sekitar 156 GB. Kandidat memindahkan disk image melalui pengaturan Docker Desktop ke drive D;
+Docker Engine kemudian kembali berjalan dengan volume database existing tetap tersedia.
+
+### Hasil verifikasi Docker setelah pemindahan
+
+- Image `azatech-order-backend:latest` dan `azatech-order-frontend:latest` berhasil dibangun.
+- Build frontend sempat mengalami SIGSEGV saat memuat SWC native. Hash binary pada layer
+  tersimpan berbeda dari binary paket npm yang diunduh ulang, sedangkan binary baru dapat
+  dimuat pada container yang sama. Dependency frontend kemudian dibangun ulang menggunakan
+  cache service terpisah dan pemeriksaan integritas; build Turbopack standar berhasil.
+- `docker compose up -d --no-build --wait --wait-timeout 180` selesai dengan PostgreSQL,
+  backend, dan frontend berstatus healthy pada port host 5434, 4000, dan 3200.
+- Migration dijalankan otomatis (tidak ada migration tertunda), kemudian seed selesai tanpa
+  mereset data existing: 1 user, 20 produk, 15 customer, dan 31 order pada saat pemeriksaan.
+- Smoke test API: login, me, products, customers, orders, dashboard, logout, dan penolakan
+  access token sesi yang telah dicabut berhasil sesuai status yang diharapkan.
+- Smoke test Chromium: login di port 3200, dashboard, reload/session restore menggunakan
+  refresh cookie, navigasi produk/customer/riwayat, dan logout berhasil.
+- Tidak ada order dengan total berbeda dari SUM(subtotal), serta tidak ada stok negatif.
+- Kedua container aplikasi berjalan sebagai UID 1000. File `.env` lokal tidak ada di image;
+  environment hanya diberikan oleh Compose pada runtime.
+- Artefak smoke test dan screenshot Docker tersimpan di `test-results/` yang Git ignored.
+
+CI GitHub belum dijalankan di remote; hasil di atas merupakan verifikasi Docker lokal.
 
 ## Langkah pengumpulan oleh kandidat
 

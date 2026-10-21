@@ -1,0 +1,69 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "default_agent": "kms-dev",
+    "instructions": [".opencode/rules/development.md"],
+    "agent": {
+      "build": {
+        "disable": false,
+        "permission": {
+          "skill": {
+            "*": "allow"
+          },
+          "task": {
+            "*": "allow"
+          }
+        }
+      },
+      "plan": {
+        "disable": false,
+        "permission": {
+          "skill": {
+            "*": "allow"
+          }
+        }
+      }
+    },
+    "formatter": {
+      "gofmt": {
+        "command": [
+          "goimports",
+          "-w",
+          "$FILE"
+        ],
+        "extensions": [
+          ".go"
+        ]
+      }
+    },
+    "lsp": true,
+    "mcp": {
+      "context7": {
+        "headers": {
+          "CONTEXT7_API_KEY": "{env:OPENCODE_CONTEXT7_API_KEY}"
+        },
+        "type": "remote",
+        "url": "https://mcp.context7.com/mcp"
+      },
+      "graphify": {
+        "command": [
+          "graphify-mcp",
+          "graphify-out/graph.json"
+        ],
+        "type": "local"
+      },
+      "serena": {
+        "command": [
+          "serena",
+          "start-mcp-server",
+          "--project-from-cwd",
+          "--context=ide"
+        ],
+        "type": "local"
+      }
+    },
+    "permission": {
+      "skill": {
+        "*": "allow"
+      }
+    }
+  }

@@ -239,9 +239,37 @@ lokal, `pnpm db:up` hanya menyalakan database. Hentikan service lokal pada 3200/
 menyalakan container full stack. Root `.env.example` mendokumentasikan override port/origin.
 Docker database memakai kredensial demo lokal yang sama dengan baseline, bukan secret pribadi.
 
-**Status verifikasi Docker:** konfigurasi Compose valid. Build image belum berhasil diuji
-karena DNS Docker Desktop tidak dapat me-resolve `registry-1.docker.io` ketika menarik base
-image; source backend/frontend, migration, test, dan build production sudah diverifikasi lokal.
+**Status verifikasi Docker:** image backend dan frontend berhasil dibangun. Ketiga service
+berstatus **healthy**. Login melalui browser, pemulihan sesi setelah reload, navigasi halaman,
+akses API, logout, dan pencabutan token telah diverifikasi terhadap container yang berjalan.
+
+| Service    | Container                  | Akses dari host           |
+| ---------- | -------------------------- | ------------------------- |
+| Frontend   | `azatech-order-frontend-1` | http://localhost:3200     |
+| Backend    | `azatech-order-backend-1`  | http://localhost:4000/api |
+| PostgreSQL | `azatech-postgres`         | localhost:5434            |
+
+Dockerfile membatasi install dependency sesuai service dan menyimpan unduhan melalui cache
+BuildKit. Frontend memakai cache terpisah dengan pemeriksaan integritas paket native. Compose
+menunggu PostgreSQL, backend, dan frontend sehat sebelum perintah `--wait` selesai.
+
+Compose membaca kredensial seeder dari root `.env`; `pnpm env:setup` mengisi nilai yang belum
+ada dari environment backend. File environment lokal tidak disalin ke image. Data existing
+tetap berada di named volume dan seed tidak mereset akun atau transaksi yang sudah ada.
+
+Untuk melihat status/log, menjeda service, dan menjalankannya kembali memakai image existing:
+
+```sh
+docker compose ps
+docker compose logs -f backend frontend
+docker compose stop
+docker compose up -d --wait
+```
+
+Pada environment pengujian Windows, disk image Docker telah dipindahkan ke drive D setelah
+drive C kehabisan ruang. Masalah cache native SWC setelah kegagalan disk penuh diselesaikan
+dengan membangun ulang dependency frontend dari cache terpisah. Detail diagnosis dan hasil
+verifikasi tercatat di `dev-plan/EXECUTION.md`.
 
 ## CI (bonus)
 

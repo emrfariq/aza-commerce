@@ -70,6 +70,18 @@ services:
       NODE_ENV: production
     ports:
       - "${FRONTEND_PORT:-3200}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
 
 volumes:
   pgdata:

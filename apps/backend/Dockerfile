@@ -3,8 +3,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 WORKDIR /app
 RUN chown node:node /app
 USER node
-COPY --chown=node:node . .
-RUN pnpm install --frozen-lockfile && pnpm --filter @app/backend run prisma:generate && pnpm --filter @app/backend run build
+# Keep dependency downloads cached independently from application source changes.
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=node:node apps/backend/package.json ./apps/backend/package.json
+COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
+RUN --mount=type=cache,id=azatech-pnpm,target=/pnpm/store,uid=1000,gid=1000,sharing=locked \
+    pnpm --filter @app/backend... install --frozen-lockfile --store-dir /pnpm/store
+COPY --chown=node:node tsconfig.base.json ./
+COPY --chown=node:node apps/backend ./apps/backend
+RUN pnpm --filter @app/backend run prisma:generate && pnpm --filter @app/backend run build
 WORKDIR /app/apps/backend
 ENV NODE_ENV=production
 EXPOSE 4000
