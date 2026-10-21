@@ -1,0 +1,17 @@
+# Generated files and dependencies
+node_modules/
+**/node_modules/
+**/.next/
+**/dist/
+**/coverage/
+**/next-env.d.ts
+**/test-results/
+**/playwright-report/
+pnpm-lock.yaml
+
+# Local credentials, editor settings, and source documents
+**/.env*
+.serena/
+opencode.json
+opencode.jsonc
+dev-plan/*.pdf

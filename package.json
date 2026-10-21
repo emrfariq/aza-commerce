@@ -12,16 +12,26 @@
     "dev:backend": "pnpm --filter @app/backend run dev",
     "dev:frontend": "pnpm --filter @app/frontend run dev",
     "build": "pnpm -r run build",
-    "lint": "pnpm -r run lint",
+    "lint": "tsc --noEmit -p tsconfig.json && pnpm -r run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "pnpm -r run test",
-    "db:up": "docker compose up -d postgres",
+    "test:e2e": "pnpm --filter @app/backend run test:e2e",
+    "env:setup": "node scripts/setup.mjs",
+    "db:setup": "pnpm --filter @app/backend run prisma:generate && pnpm --filter @app/backend exec prisma migrate deploy && pnpm db:seed",
+    "db:bootstrap": "pnpm db:up && pnpm db:setup",
+    "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "db:migrate": "pnpm --filter @app/backend exec prisma migrate dev",
     "db:seed": "pnpm --filter @app/backend run seed",
+    "db:seed:auth": "pnpm --filter @app/backend run seed:auth",
     "prisma:studio": "pnpm --filter @app/backend exec prisma studio"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "24.19.2",
+    "prettier": "3.6.2",
     "typescript": "5.6.3"
   }
 }

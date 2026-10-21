@@ -4,8 +4,7 @@ node_modules/
 
 # env
 .env
-.env.*.local
-.env.local
+.env.*
 !.env.example
 
 # builds
@@ -35,3 +34,7 @@ pgdata/
 
 # prisma
 apps/backend/prisma/*.db
+
+# browser test artifacts
+test-results/
+playwright-report/
