@@ -1,0 +1,31 @@
+name: azatech-order
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: azatech-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: azatech_order_db
+      TZ: Asia/Jakarta
+      PGTZ: Asia/Jakarta
+    ports:
+      # host 5434 -> container 5432
+      # (5432 & 5433 di host sudah dipakai Postgres native Windows service)
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d azatech_order_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Catatan: service backend & frontend akan ditambahkan di Fase 4
+  # (butuh Dockerfile masing-masing). Untuk dev lokal cukup `docker compose up -d postgres`.
+
+volumes:
+  pgdata:
+    name: azatech_pgdata

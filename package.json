@@ -1,0 +1,27 @@
+{
+  "name": "azatech-order-management",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Azatech Technical Test — Medior Fullstack Developer (Order Management System). Monorepo pnpm workspaces.",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream run dev",
+    "dev:backend": "pnpm --filter @app/backend run dev",
+    "dev:frontend": "pnpm --filter @app/frontend run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:migrate": "pnpm --filter @app/backend exec prisma migrate dev",
+    "db:seed": "pnpm --filter @app/backend run seed",
+    "prisma:studio": "pnpm --filter @app/backend exec prisma studio"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3"
+  }
+}
