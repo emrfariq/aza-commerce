@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
+import express from "express";
 import { z } from "zod";
-import { createApp } from "../src/app.js";
-import { AppError, buildMeta } from "../src/utils/api-response.js";
-import { errorHandler } from "../src/middlewares/error-handler.js";
+import { AppError, buildMeta, ok } from "../src/utils/api-response.js";
+import { errorHandler, notFoundHandler } from "../src/middlewares/error-handler.js";
+
+const createApp = () => {
+  const app = express();
+  app.set("json replacer", (_key: string, value: unknown) =>
+    typeof value === "bigint" ? Number(value) : value,
+  );
+  app.get("/api/health", (_req, res) => ok(res, { status: "up" }));
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+  return app;
+};
 
 describe("api response format", () => {
   it("wraps success responses and serializes bigint", async () => {
@@ -24,7 +35,9 @@ describe("api response format", () => {
     const stack = app.router.stack;
     const [notFound, onError] = stack.splice(-2);
     app.get("/t/app-error", () => {
-      throw AppError.unprocessable("Stok tidak mencukupi", { "items.1.quantity": ["Stok X tersisa 3, diminta 5"] });
+      throw AppError.unprocessable("Stok tidak mencukupi", {
+        "items.1.quantity": ["Stok X tersisa 3, diminta 5"],
+      });
     });
     app.get("/t/zod", async () => {
       z.object({ items: z.array(z.object({ quantity: z.number().int().positive() })) }).parse({

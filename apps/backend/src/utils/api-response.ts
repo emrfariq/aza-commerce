@@ -59,7 +59,9 @@ export const buildMeta = (page: number, perPage: number, total: number): Paginat
 });
 
 export const ok = <T>(res: Response, data: T, message = "OK", meta?: PaginationMeta) =>
-  res.status(200).json({ success: true, message, data, ...(meta && { meta }) } satisfies SuccessBody<T>);
+  res
+    .status(200)
+    .json({ success: true, message, data, ...(meta && { meta }) } satisfies SuccessBody<T>);
 
 export const created = <T>(res: Response, data: T, message = "Created") =>
   res.status(201).json({ success: true, message, data } satisfies SuccessBody<T>);
@@ -67,4 +69,6 @@ export const created = <T>(res: Response, data: T, message = "Created") =>
 export const noContent = (res: Response) => res.status(204).end();
 
 export const fail = (res: Response, status: number, message: string, errors?: FieldErrors) =>
-  res.status(status).json({ success: false, message, ...(errors && { errors }) } satisfies ErrorBody);
+  res
+    .status(status)
+    .json({ success: false, message, ...(errors && { errors }) } satisfies ErrorBody);

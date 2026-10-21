@@ -25,8 +25,15 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === "P2002") {
-      const fields = ([] as string[]).concat((err.meta?.target as string[] | string | undefined) ?? []);
-      const errors = Object.fromEntries(fields.map((f) => [f, [`${f} sudah digunakan`]]));
+      const fields = ([] as string[]).concat(
+        (err.meta?.target as string[] | string | undefined) ?? [],
+      );
+      const errors = Object.fromEntries(
+        fields.map((f) => {
+          const name = f.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+          return [name, [`${name} sudah digunakan`]];
+        }),
+      );
       return fail(res, 409, "Data duplikat", errors);
     }
     if (err.code === "P2025") return fail(res, 404, "Data tidak ditemukan");
@@ -35,6 +42,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 
   // Malformed JSON body from express.json()
   if (err?.type === "entity.parse.failed") return fail(res, 400, "Body JSON tidak valid");
+  if (err?.type === "entity.too.large") return fail(res, 413, "Request terlalu besar");
 
   console.error(err);
   return fail(res, 500, "Terjadi kesalahan pada server");

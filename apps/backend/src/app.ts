@@ -1,19 +1,39 @@
 import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import { env } from "./config/env.js";
+import { requireAuth } from "./middlewares/auth.js";
+import { authRouter } from "./modules/auth/routes.js";
+import { productsRouter } from "./modules/products/routes.js";
+import { customersRouter } from "./modules/customers/routes.js";
+import { ordersRouter } from "./modules/orders/routes.js";
+import { dashboardRouter } from "./modules/dashboard/routes.js";
 import { ok } from "./utils/api-response.js";
 import { errorHandler, notFoundHandler } from "./middlewares/error-handler.js";
 
 export const createApp = () => {
   const app = express();
 
-  // BigInt ids (bigint PKs) are not JSON-serializable by default.
-  // ponytail: Number() is safe below 2^53; switch to String() if ids ever get that big.
+  app.disable("x-powered-by");
   app.set("json replacer", (_key: string, value: unknown) =>
     typeof value === "bigint" ? Number(value) : value,
   );
-  app.use(express.json());
+  app.use(
+    cors({
+      origin: (origin, callback) => callback(null, !origin || origin === env().FRONTEND_URL),
+      credentials: true,
+    }),
+  );
+  app.use(express.json({ limit: "100kb" }));
+  app.use(cookieParser());
+  app.use("/api/auth", authRouter);
+  app.use("/api", requireAuth);
 
   app.get("/api/health", (_req, res) => ok(res, { status: "up" }));
-  // Feature routers are mounted here in Phase 2.
+  app.use("/api/products", productsRouter);
+  app.use("/api/customers", customersRouter);
+  app.use("/api/orders", ordersRouter);
+  app.use("/api/dashboard", dashboardRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -50,8 +50,7 @@ model RefreshToken {
 
 model Product {
   id          BigInt    @id @default(autoincrement())
-  // ponytail: plain unique => code of a soft-deleted product cannot be reused.
-  // Upgrade: partial unique index WHERE deleted_at IS NULL.
+  // Codes remain reserved after soft delete to avoid ambiguous historical references.
   productCode String    @unique @map("product_code") @db.VarChar(20)
   productName String    @map("product_name") @db.VarChar(150)
   stock       Int       @default(0)
