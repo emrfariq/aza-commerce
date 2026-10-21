@@ -23,8 +23,53 @@ services:
       timeout: 5s
       retries: 10
 
-  # Catatan: service backend & frontend akan ditambahkan di Fase 4
-  # (butuh Dockerfile masing-masing). Untuk dev lokal cukup `docker compose up -d postgres`.
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:password123@postgres:5432/azatech_order_db?schema=public
+      PORT: 4000
+      NODE_ENV: production
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3200}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Run pnpm env:setup first}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Run pnpm env:setup first}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?Run pnpm env:setup first}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Run pnpm env:setup first}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4000/api/health').then(r=>process.exit(r.status===401?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 10
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:4000/api}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${FRONTEND_PORT:-3200}:3000"
 
 volumes:
   pgdata:

@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+**/.env
+**/.env.local
+**/.env.*.local
+.git
+.serena
+dev-plan/*.pdf
+opencode.json
