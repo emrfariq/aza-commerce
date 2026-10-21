@@ -1,7 +1,8 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { env } from "./config/env.js";
+import { isAllowedBrowserOrigin } from "./config/env.js";
+import { docsRouter } from "./docs/routes.js";
 import { requireAuth } from "./middlewares/auth.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { productsRouter } from "./modules/products/routes.js";
@@ -20,12 +21,13 @@ export const createApp = () => {
   );
   app.use(
     cors({
-      origin: (origin, callback) => callback(null, !origin || origin === env().FRONTEND_URL),
+      origin: (origin, callback) => callback(null, isAllowedBrowserOrigin(origin)),
       credentials: true,
     }),
   );
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
+  app.use(docsRouter);
   app.use("/api/auth", authRouter);
   app.use("/api", requireAuth);
 

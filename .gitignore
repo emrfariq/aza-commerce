@@ -38,3 +38,6 @@ apps/backend/prisma/*.db
 # browser test artifacts
 test-results/
 playwright-report/
+
+#dev-plan
+dev-plan/

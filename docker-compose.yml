@@ -36,6 +36,7 @@ services:
       PORT: 4000
       NODE_ENV: production
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3200}
+      API_PUBLIC_URL: ${PUBLIC_API_URL:-http://localhost:4000/api}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Run pnpm env:setup first}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Run pnpm env:setup first}
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin}

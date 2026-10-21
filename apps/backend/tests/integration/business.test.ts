@@ -213,6 +213,24 @@ describe("authentication and input boundaries", () => {
     expect((await agent.post("/api/auth/refresh")).status).toBe(401);
   });
 
+  it("permits same-origin Swagger login/refresh and rejects unconfigured browser origins", async () => {
+    const agent = request.agent(app);
+    const swaggerOrigin = new URL(process.env.API_PUBLIC_URL ?? "http://localhost:4000/api").origin;
+    const login = await agent
+      .post("/api/auth/login")
+      .set("Origin", swaggerOrigin)
+      .send({ email: "admin@test.id", password: "Test123!" });
+    expect(login.status).toBe(200);
+    expect(login.headers["access-control-allow-origin"]).toBe(swaggerOrigin);
+    expect((await agent.post("/api/auth/refresh").set("Origin", swaggerOrigin)).status).toBe(200);
+    const forbidden = await request(app)
+      .post("/api/auth/login")
+      .set("Origin", "https://untrusted.example")
+      .send({ email: "admin@test.id", password: "Test123!" });
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
   it("returns consistent errors for invalid login, dates, malformed JSON and unknown resources", async () => {
     expect(
       (

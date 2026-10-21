@@ -20,6 +20,7 @@ const backend = ensure("apps/backend/.env", {
   DATABASE_URL: "postgresql://postgres:password123@localhost:5434/azatech_order_db?schema=public",
   PORT: "4000",
   FRONTEND_URL: "http://localhost:3200",
+  API_PUBLIC_URL: "http://localhost:4000/api",
   NODE_ENV: "development",
   JWT_ACCESS_SECRET: randomBytes(48).toString("hex"),
   JWT_REFRESH_SECRET: randomBytes(48).toString("hex"),

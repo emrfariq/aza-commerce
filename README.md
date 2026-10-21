@@ -7,20 +7,21 @@ Indonesia untuk produk, pelanggan, transaksi multi-item, riwayat, dan dashboard.
 
 Project menggunakan **Track A (TypeScript)** dengan backend dan frontend sebagai dua service terpisah.
 
-| Kebutuhan          | Pilihan                          | Alasan                                                                                             |
-| ------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Runtime dan bahasa | Node.js 24+, TypeScript strict   | Sesuai requirement; type-check membantu menangkap kontrak dan nilai nullable sebelum runtime.      |
-| REST API           | Express 5                        | Framework ringan, routing eksplisit, dan native async error handling yang terpusat.                |
-| Database           | PostgreSQL 16                    | Mendukung constraint, transaksi, row locking, dan advisory lock untuk integritas stok/nomor order. |
-| ORM dan migration  | Prisma 6.19.3                    | Query type-safe, migration terkontrol, Decimal untuk uang, serta melanjutkan fondasi existing.     |
-| Autentikasi        | JWT access + refresh, bcryptjs   | Access token berumur pendek, refresh bisa dirotasi/dicabut, dan password di-hash.                  |
-| Validasi           | Zod                              | Satu boundary validasi untuk body/query/parameter dan field errors yang mudah dipetakan ke UI.     |
-| Frontend           | React 19 + Next.js 16 App Router | Routing halaman dan komposisi layout; seluruh logika bisnis tetap di backend Express.              |
-| Server state       | TanStack Query                   | Cache, status request, invalidation setelah mutasi, dan refetch tanpa state fetch manual berulang. |
-| UI                 | Tailwind CSS 4 + CSS komponen    | Responsive layout dan styling konsisten tanpa ketergantungan UI library yang besar.                |
-| Monorepo           | pnpm 10 workspaces               | Dependency dan perintah terpusat, tetapi kedua service tetap dapat dijalankan sendiri.             |
-| Automated test     | Vitest + Supertest, Playwright   | Integration test menggunakan PostgreSQL nyata; browser test memverifikasi alur pengguna.           |
-| Format kode        | Prettier                         | Format TypeScript, JSX, CSS, JSON, dan dokumentasi yang konsisten serta dapat diperiksa di CI.     |
+| Kebutuhan              | Pilihan                            | Alasan                                                                                                       |
+| ---------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Runtime dan bahasa     | Node.js 24+, TypeScript strict     | Sesuai requirement; type-check membantu menangkap kontrak dan nilai nullable sebelum runtime.                |
+| REST API               | Express 5                          | Framework ringan, routing eksplisit, dan native async error handling yang terpusat.                          |
+| Database               | PostgreSQL 16                      | Mendukung constraint, transaksi, row locking, dan advisory lock untuk integritas stok/nomor order.           |
+| ORM dan migration      | Prisma 6.19.3                      | Query type-safe, migration terkontrol, Decimal untuk uang, serta melanjutkan fondasi existing.               |
+| Autentikasi            | JWT access + refresh, bcryptjs     | Access token berumur pendek, refresh bisa dirotasi/dicabut, dan password di-hash.                            |
+| Validasi               | Zod                                | Satu boundary validasi untuk body/query/parameter dan field errors yang mudah dipetakan ke UI.               |
+| Frontend               | React 19 + Next.js 16 App Router   | Routing halaman dan komposisi layout; seluruh logika bisnis tetap di backend Express.                        |
+| Server state           | TanStack Query                     | Cache, status request, invalidation setelah mutasi, dan refetch tanpa state fetch manual berulang.           |
+| UI                     | Tailwind CSS 4 + CSS komponen      | Responsive layout dan styling konsisten tanpa ketergantungan UI library yang besar.                          |
+| Monorepo               | pnpm 10 workspaces                 | Dependency dan perintah terpusat, tetapi kedua service tetap dapat dijalankan sendiri.                       |
+| Automated test         | Vitest + Supertest, Playwright     | Integration test menggunakan PostgreSQL nyata; browser test memverifikasi alur pengguna.                     |
+| Format kode            | Prettier                           | Format TypeScript, JSX, CSS, JSON, dan dokumentasi yang konsisten serta dapat diperiksa di CI.               |
+| Dokumentasi interaktif | OpenAPI 3.0.3 + Swagger UI Express | Kontrak request/response, autentikasi, contoh skenario bisnis, dan pengujian endpoint langsung dari browser. |
 
 Next.js API Routes dan Server Actions tidak dipakai sebagai backend utama. Browser memanggil
 REST API Express; hanya backend yang mengakses database.
@@ -52,6 +53,7 @@ sampai target 30 untuk admin demo; tidak memulihkan data yang sudah diedit/dihap
 | ---------------- | -------------------------------------------------- |
 | Frontend         | http://localhost:3200                              |
 | Backend API      | http://localhost:4000/api                          |
+| Swagger UI       | http://localhost:4000/api/docs/                    |
 | Email admin      | Nilai `SEED_ADMIN_EMAIL` di `apps/backend/.env`    |
 | Password admin   | Nilai `SEED_ADMIN_PASSWORD` di `apps/backend/.env` |
 | PostgreSQL lokal | localhost:5434 / azatech_order_db                  |
@@ -98,7 +100,7 @@ pnpm dev:frontend
 
 Jalankan pada terminal berbeda. Backend membaca `apps/backend/.env`; frontend membaca
 `apps/frontend/.env.local`. Contoh konfigurasi tersedia di `.env.example` masing-masing.
-Jika mengganti port/origin, sesuaikan `PORT`, `FRONTEND_URL`, dan `NEXT_PUBLIC_API_URL`.
+Jika mengganti port/origin, sesuaikan `PORT`, `FRONTEND_URL`, `API_PUBLIC_URL`, dan `NEXT_PUBLIC_API_URL`.
 `NEXT_PUBLIC_API_URL` dibundel saat build, sehingga perubahan memerlukan rebuild frontend.
 
 ```sh
@@ -190,9 +192,11 @@ Jalankan dari root repository setelah setup. `format:check` hanya memeriksa kons
 gunakan `pnpm format` untuk merapikan kode saat pengembangan.
 
 `lint` adalah **TypeScript type-check**, termasuk konfigurasi/test E2E; bukan klaim ESLint.
-`pnpm test` menjalankan 4 test fondasi dan 12 integration test: sukses order, rollback
+`pnpm test` menjalankan 20 test: 4 test fondasi, 13 integration test, dan 3 test Swagger/OpenAPI.
+Skenario mencakup sukses order, rollback
 item kedua, input/tampering/duplikat, tanpa/expired token, overselling paralel, nomor unik
-paralel, price snapshot, soft delete, refresh/logout, CRUD, filter, dan dashboard.
+paralel, price snapshot, soft delete, refresh/logout, CRUD, filter, dashboard, validasi spesifikasi,
+akses dokumentasi, serta whitelist origin browser untuk Swagger.
 
 Runner otomatis membuat `azatech_order_db_test` dan menerapkan migration dari database
 kosong. Integration suite melakukan TRUNCATE **hanya pada DB test**, tanpa mock transaksi.
@@ -218,13 +222,37 @@ di DB E2E; tidak mengubah database demo utama.
 
 ## API documentation
 
+- [Swagger UI lokal](http://localhost:4000/api/docs/) — root http://localhost:4000 juga mengarah ke Swagger.
+- [OpenAPI JSON](http://localhost:4000/api/openapi.json).
 - [Kontrak endpoint, payload, response, status, dan auth](docs/api/README.md).
 - [Postman collection](docs/api/order-management.postman_collection.json).
 - [PRD lengkap](dev-plan/PRD.md) dan [hasil eksekusi](dev-plan/EXECUTION.md).
 
-Semua response JSON menggunakan `{success,message,data,meta?}` atau
+Semua response bisnis JSON menggunakan `{success,message,data,meta?}` atau
 `{success:false,message,errors?}`. DELETE 204 tanpa body. Error stok seperti
 `errors["items.1.quantity"]` langsung dipetakan ke form baris terkait.
+
+### Menguji API melalui Swagger
+
+1. Buka **http://localhost:4000** atau **http://localhost:4000/api/docs/**.
+2. Pilih **Authentication → POST /auth/login → Try it out**. Isi email/password dari
+   environment seeder lokal, lalu klik **Execute**.
+3. Salin `data.access_token` dari respons, klik **Authorize**, dan isi **bearerAuth** dengan
+   token tersebut tanpa menambahkan awalan `Bearer`.
+4. Uji endpoint bisnis. Pada **POST /orders**, pilih contoh order sukses, stok kurang,
+   quantity tidak valid, atau produk duplikat. Sesuaikan ID dengan data yang tersedia.
+5. Untuk menguji akses tanpa token, hapus otorisasi melalui dialog **Authorize**, lalu
+   jalankan endpoint bisnis dan periksa respons **401**.
+
+Refresh cookie HttpOnly dikirim otomatis oleh browser yang sama. Setelah menjalankan
+`POST /auth/refresh`, perbarui Bearer token dari respons. Otentikasi Swagger tidak disimpan
+secara persisten setelah reload. Halaman dokumentasi dan JSON spesifikasi dapat dibuka tanpa
+login; endpoint bisnis tetap dilindungi middleware autentikasi.
+
+Source kontrak berada di `apps/backend/src/docs/openapi.ts` dan diuji menggunakan Swagger
+Parser. Jika menambahkan endpoint, sesuaikan kontrak serta test dokumentasinya. Browser origin
+yang diizinkan adalah `FRONTEND_URL` dan origin dari `API_PUBLIC_URL`. Untuk development,
+default-nya port 3200 dan 4000; Compose mengisi `API_PUBLIC_URL` dari root `PUBLIC_API_URL`.
 
 ## Docker Compose seluruh service (bonus)
 

@@ -1,6 +1,6 @@
 import { Router, type CookieOptions, type RequestHandler } from "express";
 import { z } from "zod";
-import { env } from "../../config/env.js";
+import { env, isAllowedBrowserOrigin } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 import { authSession, requireAuth } from "../../middlewares/auth.js";
 import { AppError, ok } from "../../utils/api-response.js";
@@ -15,7 +15,7 @@ const cookieOptions = (): CookieOptions => ({
   path: "/api/auth",
 });
 const checkOrigin: RequestHandler = (req, _res, next) => {
-  if (req.headers.origin && req.headers.origin !== env().FRONTEND_URL)
+  if (!isAllowedBrowserOrigin(req.headers.origin))
     throw AppError.forbidden("Origin tidak diizinkan");
   next();
 };

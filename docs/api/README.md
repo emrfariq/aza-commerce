@@ -1,5 +1,19 @@
 # REST API
 
+## Swagger UI dan OpenAPI
+
+- Buka **http://localhost:4000** atau **http://localhost:4000/api/docs/**.
+- Spesifikasi JSON tersedia di **http://localhost:4000/api/openapi.json**.
+- Dokumentasi memuat seluruh 19 operasi API, schema, parameter, response envelope,
+  status/error, dan contoh order sukses maupun gagal.
+- Jalankan login melalui **Try it out**, salin `data.access_token`, lalu isi **Authorize →
+  bearerAuth** dengan token tanpa awalan `Bearer`.
+- Login/refresh menggunakan cookie browser otomatis. Token Bearer diperbarui manual setelah
+  refresh dan tidak disimpan permanen oleh UI. Dokumentasi tidak berisi kredensial seeder.
+- Dokumentasi merupakan endpoint publik; semua endpoint bisnis tetap membutuhkan autentikasi.
+
+## Postman collection
+
 Base URL: `http://localhost:4000/api`. Import
 [`order-management.postman_collection.json`](order-management.postman_collection.json)
 ke Postman. Jalankan folder berurutan; collection menyimpan access token dan ID resource
@@ -23,7 +37,8 @@ Refresh merotasi hash/token; refresh lama tidak dapat dipakai lagi.
 `POST /auth/logout` membutuhkan Bearer dan mencabut sesi saat ini; token access sesi
 tersebut langsung ditolak. `GET /auth/me` mengembalikan profil tanpa password.
 Browser harus memakai `credentials: include`. Origin browser pada auth harus sesuai
-`FRONTEND_URL`; request tanpa Origin (Postman/CLI) diizinkan. Gunakan HTTPS dengan domain
+`FRONTEND_URL` atau origin `API_PUBLIC_URL` untuk Swagger; request tanpa Origin (Postman/CLI)
+diizinkan. Gunakan HTTPS dengan domain
 same-site pada deployment; konfigurasi lintas situs berbeda memerlukan strategi cookie/CSRF lain.
 
 ## Endpoint dan query
@@ -103,6 +118,9 @@ Respons order mencakup fields orders, `customer`, `creator:{id,name,email}`,
 List order menyertakan `customer` dan `_count:{items}`, bukan seluruh item detail.
 
 ## Envelope dan tipe data
+
+Kontrak envelope berlaku untuk endpoint bisnis. `/api/openapi.json` mengembalikan dokumen
+OpenAPI mentah agar dapat dibaca Swagger UI dan tooling dokumentasi.
 
 ```json
 {

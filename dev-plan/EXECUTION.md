@@ -123,6 +123,24 @@ Docker Engine kemudian kembali berjalan dengan volume database existing tetap te
 
 CI GitHub belum dijalankan di remote; hasil di atas merupakan verifikasi Docker lokal.
 
+## Swagger UI dan OpenAPI
+
+- [x] Swagger tersedia pada `http://localhost:4000/api/docs/`; root port 4000 redirect ke UI.
+- [x] Dokumen OpenAPI 3.0.3 mentah tersedia pada `/api/openapi.json`, mencakup 19 operasi API.
+- [x] Schema request/response, pagination, query/path parameters, Bearer authentication,
+  refresh cookie, status/error, dan contoh order sukses/gagal didokumentasikan.
+- [x] Origin Swagger diizinkan secara eksplisit melalui `API_PUBLIC_URL`; origin frontend
+  tetap memakai `FRONTEND_URL`. Origin browser tidak terdaftar tetap ditolak.
+- [x] Tiga test dokumentasi dan satu integration test origin ditambahkan. Total test saat
+  ini 20 lulus: 4 fondasi, 13 integration, dan 3 Swagger/OpenAPI.
+- [x] Backend Docker berhasil dibangun ulang dan dijalankan kembali dalam status healthy.
+- [x] Verifikasi Chromium di Swagger: login/Authorize, GET products terautentikasi,
+  order stok kurang (422, stok item lain tetap), refresh cookie, logout, dan pencabutan token.
+
+Dokumentasi bersifat publik agar dapat dibuka sebelum login; middleware auth tetap
+melindungi seluruh endpoint bisnis. Tidak ada kredensial seeder atau token aktif yang
+disimpan dalam spesifikasi. Artefak browser berada di `test-results/` yang Git ignored.
+
 ## Langkah pengumpulan oleh kandidat
 
 - [ ] Tinjau kode dan siapkan penjelasan auth, locking, snapshot, query, cache, dan test.
