@@ -395,6 +395,43 @@ export const openApiDocument: OpenAPIV3.Document = {
         },
       },
     },
+    "/orders/export": {
+      get: {
+        tags: ["Orders"],
+        operationId: "exportOrders",
+        summary: "Export seluruh riwayat sesuai filter ke CSV/Excel",
+        description:
+          "format menentukan jenis file, default csv. Filter from/to/customer_id sama dengan list, tetapi pagination tidak diterapkan. CSV UTF-8 BOM berisi satu baris per order agar total tidak terduplikasi. Excel (.xlsx) berisi sheet Ringkasan Order dan Detail Item dengan snapshot harga. Master terarsip tetap disertakan. Hasil kosong tetap mengembalikan file valid dengan header.",
+        parameters: [
+          {
+            name: "format",
+            in: "query",
+            schema: { type: "string", enum: ["csv", "xlsx"], default: "csv" },
+          },
+          ...["FromDate", "ToDate", "CustomerFilter"].map(parameterRef),
+        ],
+        responses: {
+          "200": {
+            description: "File unduhan, bukan JSON envelope",
+            headers: {
+              "Content-Disposition": {
+                schema: { type: "string" },
+                description: "attachment; filename=riwayat-order-YYYYMMDD.csv atau .xlsx",
+              },
+              "Cache-Control": { schema: { type: "string", example: "no-store" } },
+            },
+            content: {
+              "text/csv": { schema: { type: "string", format: "binary" } },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                schema: { type: "string", format: "binary" },
+              },
+            },
+          },
+          "422": responseRef("ValidationError"),
+          ...protectedErrors,
+        },
+      },
+    },
     "/orders/{id}": {
       parameters: [parameterRef("NumericId")],
       get: {
@@ -406,6 +443,27 @@ export const openApiDocument: OpenAPIV3.Document = {
         responses: {
           "200": jsonResponse(envelope(schemaRef("OrderDetail"))),
           "404": responseRef("NotFound"),
+          "422": responseRef("ValidationError"),
+          ...protectedErrors,
+        },
+      },
+    },
+    "/dashboard/daily-sales": {
+      get: {
+        tags: ["Dashboard"],
+        operationId: "getDailySales",
+        summary: "Grafik penjualan per hari kalender Jakarta",
+        description:
+          "Periode berakhir pada hari ini (WIB), default 30 hari. Semua hari disertakan, termasuk hari tanpa transaksi dengan nilai nol. Total dihitung server memakai Decimal; jumlah transaksi dihitung per order, bukan per item.",
+        parameters: [
+          {
+            name: "days",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 366, default: 30 },
+          },
+        ],
+        responses: {
+          "200": jsonResponse(envelope(schemaRef("DailySales"))),
           "422": responseRef("ValidationError"),
           ...protectedErrors,
         },
@@ -516,6 +574,36 @@ export const openApiDocument: OpenAPIV3.Document = {
       ),
     },
     schemas: {
+      AggregateMoney: {
+        type: "string",
+        pattern: "^\\d+\\.\\d{2}$",
+        example: "120000.00",
+        description: "Agregat nominal decimal string dua digit.",
+      },
+      DailySales: {
+        type: "object",
+        required: ["from", "to", "total_transactions", "total_sales", "series"],
+        properties: {
+          from: { type: "string", format: "date" },
+          to: { type: "string", format: "date" },
+          total_transactions: { type: "integer", minimum: 0 },
+          total_sales: schemaRef("AggregateMoney"),
+          series: {
+            type: "array",
+            minItems: 1,
+            maxItems: 366,
+            items: {
+              type: "object",
+              required: ["date", "total_transactions", "total_sales"],
+              properties: {
+                date: { type: "string", format: "date" },
+                total_transactions: { type: "integer", minimum: 0 },
+                total_sales: schemaRef("AggregateMoney"),
+              },
+            },
+          },
+        },
+      },
       Money: {
         type: "string",
         pattern: "^\\d{1,12}\\.\\d{2}$",

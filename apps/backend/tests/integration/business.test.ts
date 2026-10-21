@@ -2,9 +2,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import ExcelJS from "exceljs";
+import { parse } from "csv-parse/sync";
 import { createApp } from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
-import { jakartaDay } from "../../src/utils/validation.js";
+import { dayStart, jakartaDay } from "../../src/utils/validation.js";
 
 if (!new URL(process.env.DATABASE_URL!).pathname.endsWith("_test"))
   throw new Error("Integration tests require a _test database");
@@ -54,6 +56,22 @@ beforeEach(async () => {
   token = login.body.data.access_token as string;
 });
 afterAll(() => prisma.$disconnect());
+
+let reportSequence = 100;
+async function reportOrder(date: Date, amount: string, targetCustomer = customerId) {
+  return prisma.order.create({
+    data: {
+      orderNumber: `INV-${jakartaDay(date).replaceAll("-", "")}-${String(++reportSequence).padStart(4, "0")}`,
+      customerId: targetCustomer,
+      createdBy: 1n,
+      orderDate: date,
+      totalAmount: amount,
+      items: {
+        create: { productId: BigInt(firstId), quantity: 1, unitPrice: amount, subtotal: amount },
+      },
+    },
+  });
+}
 
 describe("orders: real PostgreSQL transactions", () => {
   it("creates a multi-item order, snapshots prices and calculates exact totals on the server", async () => {
@@ -252,6 +270,191 @@ describe("authentication and input boundaries", () => {
       .send("{broken");
     expect(malformed.status).toBe(400);
     expect(malformed.body.success).toBe(false);
+  });
+});
+
+describe("daily sales and history exports", () => {
+  it("groups by Jakarta calendar day, fills gaps, and excludes range boundaries correctly", async () => {
+    const today = jakartaDay(new Date());
+    const todayStart = dayStart(today);
+    const firstDay = new Date(todayStart.getTime() - 3 * 86400000);
+    await reportOrder(firstDay, "100.10");
+    await reportOrder(new Date(todayStart.getTime() - 1), "200.20");
+    await reportOrder(new Date(todayStart.getTime() + 1), "300.30");
+    await reportOrder(new Date(firstDay.getTime() - 1), "900.90");
+    await reportOrder(new Date(todayStart.getTime() + 86400000), "800.80");
+    const result = await request(app).get("/api/dashboard/daily-sales?days=4").set(auth());
+    expect(result.status).toBe(200);
+    expect(result.body.data.from).toBe(jakartaDay(firstDay));
+    expect(result.body.data.to).toBe(today);
+    expect(result.body.data.total_transactions).toBe(3);
+    expect(result.body.data.total_sales).toBe("600.60");
+    expect(result.body.data.series.map((day: { total_sales: string }) => day.total_sales)).toEqual([
+      "100.10",
+      "0.00",
+      "200.20",
+      "300.30",
+    ]);
+    expect(result.body.data.series[1].total_transactions).toBe(0);
+  });
+
+  it("returns zero-valued daily series for an empty reporting period", async () => {
+    const result = await request(app).get("/api/dashboard/daily-sales?days=7").set(auth());
+    expect(result.status).toBe(200);
+    expect(result.body.data.series).toHaveLength(7);
+    expect(result.body.data.total_sales).toBe("0.00");
+    expect(result.body.data.total_transactions).toBe(0);
+    expect(
+      result.body.data.series.every((day: { total_sales: string }) => day.total_sales === "0.00"),
+    ).toBe(true);
+  });
+
+  it("exports RFC-compatible CSV with one row per order, exact totals and formula-safe text", async () => {
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        customerName: "=SUM(1,2)",
+        customerAddress: 'Jl. "Mawar", Jakarta\nLantai 2',
+        phone: "+628123456",
+      },
+    });
+    const created = await request(app)
+      .post("/api/orders")
+      .set(auth())
+      .send({
+        customer_id: customerId,
+        items: [
+          { product_id: firstId, quantity: 2 },
+          { product_id: secondId, quantity: 1 },
+        ],
+      });
+    expect(created.status).toBe(201);
+    const result = await request(app)
+      .get("/api/orders/export?format=csv")
+      .set(auth())
+      .set("Origin", process.env.FRONTEND_URL ?? "http://localhost:3200");
+    expect(result.status).toBe(200);
+    expect(result.headers["content-type"]).toContain("text/csv");
+    expect(result.headers["content-disposition"]).toMatch(
+      /attachment; filename="riwayat-order-\d{8}\.csv"/,
+    );
+    expect(result.headers["access-control-expose-headers"]).toContain("Content-Disposition");
+    expect(result.headers["cache-control"]).toBe("no-store");
+    expect(result.text.startsWith("\uFEFF")).toBe(true);
+    const rows = parse(result.text, { bom: true, columns: true }) as Record<string, string>[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["Pelanggan"]).toBe("'=SUM(1,2)");
+    expect(rows[0]?.["Alamat"]).toBe('Jl. "Mawar", Jakarta\nLantai 2');
+    expect(rows[0]?.["Telepon"]).toBe("'+628123456");
+    expect(rows[0]?.["Jumlah Produk"]).toBe("2");
+    expect(rows[0]?.["Total Quantity"]).toBe("3");
+    expect(rows[0]?.["Total Penjualan"]).toBe("39001.25");
+  });
+
+  it("exports every matching page with the same customer and inclusive-date filters as history", async () => {
+    for (let index = 0; index < 20; index++)
+      await reportOrder(new Date("2026-10-21T12:00:00+07:00"), "100.10");
+    await reportOrder(new Date("2026-10-21T23:59:59+07:00"), "200.20");
+    await reportOrder(new Date("2026-10-22T00:00:00+07:00"), "300.30");
+    const other = await prisma.customer.create({
+      data: {
+        customerName: "Pelanggan Lain",
+        customerAddress: "Bandung",
+        gender: "Wanita",
+        birthDate: new Date("1995-02-10"),
+      },
+    });
+    await reportOrder(new Date("2026-10-21T12:00:00+07:00"), "400.40", other.id);
+    const filter = `from=2026-10-21&to=2026-10-21&customer_id=${customerId}&per_page=1`;
+    const list = await request(app).get(`/api/orders?${filter}`).set(auth());
+    expect(list.body.meta.total).toBe(21);
+    expect(list.body.data).toHaveLength(1);
+    const result = await request(app).get(`/api/orders/export?format=csv&${filter}`).set(auth());
+    const rows = parse(result.text, { bom: true, columns: true }) as Record<string, string>[];
+    expect(rows).toHaveLength(21);
+    expect(rows[0]?.["Tanggal Order (WIB)"]).toBe("2026-10-21 23:59:59");
+    expect(rows.every((row) => row.Pelanggan === "Budi")).toBe(true);
+  });
+
+  it("exports a real XLSX workbook with two sheets, snapshot prices and archived master data", async () => {
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: { customerName: "=SUM(1,2)", phone: "081234567890" },
+    });
+    expect((await request(app).post("/api/orders").set(auth()).send(order())).status).toBe(201);
+    await prisma.product.update({
+      where: { id: BigInt(firstId) },
+      data: { price: "99000.00", deletedAt: new Date() },
+    });
+    await prisma.customer.update({ where: { id: customerId }, data: { deletedAt: new Date() } });
+    const result = await request(app)
+      .get(`/api/orders/export?format=xlsx&customer_id=${customerId}`)
+      .set(auth())
+      .buffer(true)
+      .parse((response, done) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => done(null, Buffer.concat(chunks)));
+      });
+    expect(result.status).toBe(200);
+    expect(result.headers["content-type"]).toContain(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(result.body);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
+      "Ringkasan Order",
+      "Detail Item",
+    ]);
+    const summary = workbook.getWorksheet("Ringkasan Order")!;
+    const details = workbook.getWorksheet("Detail Item")!;
+    expect(summary.rowCount).toBe(2);
+    expect(summary.getCell("C2").value).toBe("=SUM(1,2)");
+    expect(summary.getCell("C2").type).toBe(ExcelJS.ValueType.String);
+    expect(summary.getCell("D2").value).toBe("081234567890");
+    expect(summary.getCell("H2").value).toBe(24001);
+    expect(details.getCell("G2").value).toBe(12000.5);
+    expect(details.getCell("H2").value).toBe(24001);
+    expect(await prisma.order.count()).toBe(1);
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: BigInt(firstId) } })).stock).toBe(
+      8,
+    );
+  });
+
+  it("produces valid header-only CSV and Excel downloads for an empty filter result", async () => {
+    const csv = await request(app).get("/api/orders/export?format=csv&to=2000-01-01").set(auth());
+    expect(csv.status).toBe(200);
+    expect(parse(csv.text, { bom: true, columns: true })).toEqual([]);
+    const xlsx = await request(app)
+      .get("/api/orders/export?format=xlsx&to=2000-01-01")
+      .set(auth())
+      .buffer(true)
+      .parse((response, done) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => done(null, Buffer.concat(chunks)));
+      });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(xlsx.body);
+    expect(workbook.worksheets.map((sheet) => sheet.rowCount)).toEqual([1, 1]);
+  });
+
+  it("requires authentication and validates reporting/export parameters", async () => {
+    expect((await request(app).get("/api/orders/export?format=csv")).status).toBe(401);
+    expect((await request(app).get("/api/dashboard/daily-sales")).status).toBe(401);
+    for (const query of ["days=0", "days=367", "days=2.5", "days=invalid"]) {
+      expect(
+        (await request(app).get(`/api/dashboard/daily-sales?${query}`).set(auth())).status,
+      ).toBe(422);
+    }
+    for (const query of [
+      "format=pdf",
+      "from=2026-10-22&to=2026-10-21",
+      "from=2026-02-30",
+      "customer_id=invalid",
+    ]) {
+      expect((await request(app).get(`/api/orders/export?${query}`).set(auth())).status).toBe(422);
+    }
   });
 });
 

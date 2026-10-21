@@ -3,8 +3,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { ok } from "../../utils/api-response.js";
 import { toApi } from "../../utils/serialize.js";
+import { dailySales, dailySalesQuery } from "./sales.js";
 
 export const dashboardRouter = Router();
+dashboardRouter.get("/daily-sales", async (req, res) => {
+  const { days } = dailySalesQuery.parse(req.query);
+  return ok(res, toApi(await dailySales(days)));
+});
 dashboardRouter.get("/summary", async (_req, res) => {
   // RepeatableRead keeps cards and rankings on the same snapshot during concurrent sales.
   const data = await prisma.$transaction(

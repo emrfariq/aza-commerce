@@ -82,8 +82,8 @@ tetap 3000 dan port frontend E2E tetap 3100.
 - [x] Dockerfile dua service dan Compose full stack disediakan; config valid.
 - [x] Build image dan jalankan ketiga container full stack hingga healthy.
 - [x] Smoke test API dan browser pada deployment Docker, termasuk session restore/logout.
-- [ ] Grafik penjualan harian (opsional, tidak dikerjakan).
-- [ ] Export CSV/Excel (opsional, tidak dikerjakan).
+- [x] Grafik penjualan harian dengan pilihan periode, tooltip, dan tabel data.
+- [x] Export riwayat ke CSV dan Excel mengikuti filter aktif serta semua halaman.
 
 Percobaan awal build tertahan DNS `registry-1.docker.io`. Pada percobaan berikutnya DNS
 sudah pulih dan base image `node:24-bookworm-slim` berhasil diunduh. Build pertama melewati
@@ -126,13 +126,13 @@ CI GitHub belum dijalankan di remote; hasil di atas merupakan verifikasi Docker 
 ## Swagger UI dan OpenAPI
 
 - [x] Swagger tersedia pada `http://localhost:4000/api/docs/`; root port 4000 redirect ke UI.
-- [x] Dokumen OpenAPI 3.0.3 mentah tersedia pada `/api/openapi.json`, mencakup 19 operasi API.
+- [x] Dokumen OpenAPI 3.0.3 mentah tersedia pada `/api/openapi.json`, mencakup 21 operasi API.
 - [x] Schema request/response, pagination, query/path parameters, Bearer authentication,
   refresh cookie, status/error, dan contoh order sukses/gagal didokumentasikan.
 - [x] Origin Swagger diizinkan secara eksplisit melalui `API_PUBLIC_URL`; origin frontend
   tetap memakai `FRONTEND_URL`. Origin browser tidak terdaftar tetap ditolak.
-- [x] Tiga test dokumentasi dan satu integration test origin ditambahkan. Total test saat
-  ini 20 lulus: 4 fondasi, 13 integration, dan 3 Swagger/OpenAPI.
+- [x] Tiga test dokumentasi dan satu integration test origin ditambahkan. Setelah fitur
+  pelaporan, total test menjadi 27: 4 fondasi, 20 integration, dan 3 Swagger/OpenAPI.
 - [x] Backend Docker berhasil dibangun ulang dan dijalankan kembali dalam status healthy.
 - [x] Verifikasi Chromium di Swagger: login/Authorize, GET products terautentikasi,
   order stok kurang (422, stok item lain tetap), refresh cookie, logout, dan pencabutan token.
@@ -140,6 +140,33 @@ CI GitHub belum dijalankan di remote; hasil di atas merupakan verifikasi Docker 
 Dokumentasi bersifat publik agar dapat dibuka sebelum login; middleware auth tetap
 melindungi seluruh endpoint bisnis. Tidak ada kredensial seeder atau token aktif yang
 disimpan dalam spesifikasi. Artefak browser berada di `test-results/` yang Git ignored.
+
+## Penjualan harian dan export riwayat
+
+- API `/api/dashboard/daily-sales?days=30` menyediakan agregat harian WIB dengan rentang
+  1–366 hari, termasuk nilai nol pada hari tanpa transaksi. Nominal dihitung sebagai Decimal.
+- Grafik Recharts di dashboard menyediakan pilihan 7/30/90 hari, tooltip Rupiah,
+  ringkasan periode, navigasi keyboard, dan tabel data harian yang dapat dibuka.
+- API `/api/orders/export?format=csv|xlsx` memakai filter tanggal/customer yang sama
+  dengan riwayat dan tidak membatasi export ke pagination tabel.
+- CSV UTF-8 BOM berisi satu baris per order, quoting untuk comma/quote/newline, serta
+  perlindungan formula spreadsheet pada teks. XLSX memiliki sheet Ringkasan Order dan
+  Detail Item, mempertahankan snapshot harga dan relasi master yang diarsipkan.
+- API client memakai jalur autentikasi/refresh yang sama untuk JSON dan binary download.
+  Kontrol export memiliki loading/error state dan dinonaktifkan saat rentang tanggal salah.
+- Tujuh integration test baru mencakup timezone/batas hari, zero-fill, nominal tepat,
+  export seluruh halaman dan filter, formula-safe CSV, workbook XLSX, snapshot historis,
+  hasil kosong, autentikasi, serta parameter invalid. Total backend 27 test lulus.
+- Tiga E2E Chromium lulus, termasuk periode grafik, download CSV/Excel dengan filter,
+  refresh sebelum retry unduhan, serta penolakan rentang tanggal invalid.
+- Type-check, pemeriksaan format, dan production build backend/frontend berhasil.
+  Kedua image Docker dibangun ulang; PostgreSQL, backend, dan frontend berstatus healthy.
+- Smoke test Docker memeriksa total harian, CSV seluruh 31 order, workbook dua sheet,
+  grafik/tooltip, periode, dan unduhan browser sesuai filter. Tampilan diperiksa pada
+  desktop serta viewport mobile 390/320 px; artefak tersimpan di test-results (Git ignored).
+
+Export saat ini disusun di memory setelah snapshot baca database; streaming/batching atau
+background job menjadi pengembangan berikutnya untuk volume data besar.
 
 ## Langkah pengumpulan oleh kandidat
 

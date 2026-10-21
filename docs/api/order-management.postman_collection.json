@@ -25,7 +25,7 @@
         "type": "text/javascript",
         "exec": [
           "pm.test('Successful HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]));",
-          "if (pm.response.code !== 204) pm.test('Consistent success envelope', () => pm.expect(pm.response.json().success).to.eql(true));"
+          "if (pm.response.code !== 204 && /application\\/json/.test(pm.response.headers.get('Content-Type') || '')) pm.test('Consistent success envelope', () => pm.expect(pm.response.json().success).to.eql(true));"
         ]
       }
     }
@@ -255,6 +255,30 @@
     {
       "name": "05 Dashboard",
       "item": [
+        {
+          "name": "Daily sales",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/dashboard/daily-sales?days=30",
+            "description": "1..366 calendar days ending today in Asia/Jakarta. Includes zero days and exact decimal-string totals."
+          }
+        },
+        {
+          "name": "Export history CSV",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/orders/export?format=csv&customer_id={{customer_id}}",
+            "description": "Use Send and Download. All matching orders, no pagination; optional from/to filters. UTF-8 BOM CSV summary, one row per order."
+          }
+        },
+        {
+          "name": "Export history Excel",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/orders/export?format=xlsx&customer_id={{customer_id}}",
+            "description": "Use Send and Download. Real XLSX with Ringkasan Order and Detail Item sheets. Historical prices preserved."
+          }
+        },
         {
           "name": "Summary",
           "request": {

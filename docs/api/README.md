@@ -4,7 +4,7 @@
 
 - Buka **http://localhost:4000** atau **http://localhost:4000/api/docs/**.
 - Spesifikasi JSON tersedia di **http://localhost:4000/api/openapi.json**.
-- Dokumentasi memuat seluruh 19 operasi API, schema, parameter, response envelope,
+- Dokumentasi memuat seluruh 21 operasi API, schema, parameter, response envelope,
   status/error, dan contoh order sukses maupun gagal.
 - Jalankan login melalui **Try it out**, salin `data.access_token`, lalu isi **Authorize →
   bearerAuth** dengan token tanpa awalan `Bearer`.
@@ -43,23 +43,25 @@ same-site pada deployment; konfigurasi lintas situs berbeda memerlukan strategi 
 
 ## Endpoint dan query
 
-| Method         | Path               | Keterangan                            |
-| -------------- | ------------------ | ------------------------------------- |
-| POST           | /auth/login        | Login,200                             |
-| POST           | /auth/refresh      | Refresh cookie,200                    |
-| POST           | /auth/logout       | Revoke sesi,200                       |
-| GET            | /auth/me           | Profil,200                            |
-| GET            | /health            | Protected health,200 (tanpa token401) |
-| GET            | /products          | page,per_page,search,sort             |
-| POST           | /products          | Create,201                            |
-| GET/PUT/DELETE | /products/{id}     | Read/update200; soft delete204        |
-| GET            | /customers         | page,per_page,search                  |
-| POST           | /customers         | Create,201                            |
-| GET/PUT/DELETE | /customers/{uuid}  | Read/update200; soft delete204        |
-| GET            | /orders            | page,per_page,from,to,customer_id     |
-| POST           | /orders            | Create atomik,201                     |
-| GET            | /orders/{id}       | Detail200                             |
-| GET            | /dashboard/summary | Summary200                            |
+| Method         | Path                   | Keterangan                            |
+| -------------- | ---------------------- | ------------------------------------- |
+| POST           | /auth/login            | Login,200                             |
+| POST           | /auth/refresh          | Refresh cookie,200                    |
+| POST           | /auth/logout           | Revoke sesi,200                       |
+| GET            | /auth/me               | Profil,200                            |
+| GET            | /health                | Protected health,200 (tanpa token401) |
+| GET            | /products              | page,per_page,search,sort             |
+| POST           | /products              | Create,201                            |
+| GET/PUT/DELETE | /products/{id}         | Read/update200; soft delete204        |
+| GET            | /customers             | page,per_page,search                  |
+| POST           | /customers             | Create,201                            |
+| GET/PUT/DELETE | /customers/{uuid}      | Read/update200; soft delete204        |
+| GET            | /orders                | page,per_page,from,to,customer_id     |
+| POST           | /orders                | Create atomik,201                     |
+| GET            | /orders/{id}           | Detail200                             |
+| GET            | /orders/export         | File CSV/XLSX seluruh hasil filter    |
+| GET            | /dashboard/summary     | Summary200                            |
+| GET            | /dashboard/daily-sales | days=1..366 (default 30)              |
 
 Pagination default page1/per_page10, maksimum100. Search case-insensitive.
 Sort produk: `product_name`, `-product_name`, `price`, `-price`, `stock`, `-stock`.
@@ -119,8 +121,9 @@ List order menyertakan `customer` dan `_count:{items}`, bukan seluruh item detai
 
 ## Envelope dan tipe data
 
-Kontrak envelope berlaku untuk endpoint bisnis. `/api/openapi.json` mengembalikan dokumen
-OpenAPI mentah agar dapat dibaca Swagger UI dan tooling dokumentasi.
+Kontrak envelope berlaku untuk response JSON bisnis. `/api/openapi.json` mengembalikan dokumen
+OpenAPI mentah, sedangkan `/api/orders/export` mengembalikan file pada response sukses.
+Error export tetap berupa envelope JSON.
 
 ```json
 {
@@ -189,3 +192,53 @@ Kesalahan root memakai key `_`. Kode unik duplicate409 dengan `errors.product_co
 Total all-time; ranking berdasarkan SUM(quantity), tie-break ID, maksimal5.
 Produk diarsipkan tetap masuk ranking historis; low stock hanya aktif dengan stock<5.
 Agregasi menggunakan snapshot konsisten RepeatableRead.
+
+## Penjualan harian
+
+`GET /dashboard/daily-sales?days=30` membutuhkan Bearer token. `days` integer 1..366,
+default 30. Periode berakhir hari ini dan inklusif dalam Asia/Jakarta; grup transaksi berdasarkan
+tanggal order di WIB, bukan timezone host/container. Hari tanpa penjualan tetap disertakan.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "from": "2026-10-20",
+    "to": "2026-10-22",
+    "total_transactions": 2,
+    "total_sales": "36000.50",
+    "series": [
+      { "date": "2026-10-20", "total_transactions": 1, "total_sales": "12000.50" },
+      { "date": "2026-10-21", "total_transactions": 0, "total_sales": "0.00" },
+      { "date": "2026-10-22", "total_transactions": 1, "total_sales": "24000.00" }
+    ]
+  }
+}
+```
+
+## Export CSV dan Excel
+
+`GET /orders/export?format=csv` atau `format=xlsx`, dengan query opsional `from`, `to`,
+dan `customer_id`. Format default CSV. Filter tanggal/customer identik dengan list;
+`page`/`per_page` tidak membatasi export. Endpoint ini tetap dilindungi Bearer authentication.
+
+- Response 200: `Content-Disposition: attachment; filename="riwayat-order-YYYYMMDD.csv"`
+  atau `.xlsx`, `Cache-Control: no-store`.
+- CSV: `text/csv; charset=utf-8`, UTF-8 BOM, comma delimiter, CRLF. Kolom: No. Order,
+  Tanggal Order (WIB), Pelanggan, Telepon, Alamat, Jumlah Produk, Total Quantity,
+  Total Penjualan, Dibuat Oleh. Satu baris per order, sehingga total tidak terduplikasi.
+- Excel: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+  Sheet **Ringkasan Order** memiliki kolom yang sama dengan CSV. Sheet **Detail Item**:
+  No. Order, Tanggal Order (WIB), Pelanggan, Kode Produk, Nama Produk, Jumlah,
+  Harga Satuan, Subtotal. Harga/subtotal berasal dari snapshot transaksi.
+- Nominal CSV menggunakan decimal string; nominal XLSX menjadi sel angka berformat Rupiah.
+  Input teks tidak dijadikan formula. CSV menambahkan apostrophe untuk teks berawalan
+  karakter formula, serta meng-escape quote/newline. XLSX mempertahankan nomor telepon sebagai teks.
+- Relasi soft-deleted tetap disertakan. Hasil tanpa order menghasilkan header saja.
+  Tanggal salah/format tidak didukung → 422; tanpa token → 401.
+- Frontend mengunduh melalui fetch terautentikasi dan menangani refresh token sebelum retry;
+  header Content-Disposition diekspos untuk origin browser yang diizinkan.
+
+Untuk Postman gunakan **Send and Download** pada request export. Workbook/CSV dibangun
+di memory; export skala besar dapat dikembangkan menjadi streaming atau background job.

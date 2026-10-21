@@ -2,12 +2,21 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, CalendarDays, Plus, RotateCcw } from "lucide-react";
-import { api, queryString } from "@/lib/api";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Check,
+  Download,
+  FileSpreadsheet,
+  LoaderCircle,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
+import { api, downloadFile, queryString } from "@/lib/api";
 import type { Customer, Order } from "@/lib/types";
 import { rupiah, tanggal } from "@/lib/format";
-import { Empty, ErrorState, Loading, PageTitle, Pagination } from "@/components/ui";
+import { Empty, ErrorMessage, ErrorState, Loading, PageTitle, Pagination } from "@/components/ui";
 import Picker from "@/components/picker";
 
 export default function OrdersPage() {
@@ -15,7 +24,20 @@ export default function OrdersPage() {
   const [to, setTo] = useState("");
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [page, setPage] = useState(1);
+  const [feedback, setFeedback] = useState("");
   const invalid = Boolean(from && to && from > to);
+  const exporting = useMutation({
+    mutationFn: (format: "csv" | "xlsx") =>
+      downloadFile(
+        `/orders/export?${queryString({ format, from, to, customer_id: customer?.id })}`,
+        `riwayat-order.${format}`,
+      ),
+    onMutate: () => setFeedback(""),
+    onSuccess: (_result, format) =>
+      setFeedback(
+        `Unduhan ${format === "xlsx" ? "Excel" : "CSV"} dimulai sesuai filter yang dipilih.`,
+      ),
+  });
   const list = useQuery({
     queryKey: ["orders", { from, to, customer: customer?.id, page }],
     enabled: !invalid,
@@ -29,12 +51,47 @@ export default function OrdersPage() {
         title="Riwayat order"
         description="Telusuri setiap transaksi dan detail penjualan toko Anda."
         action={
-          <Link className="btn" href="/orders/new">
-            <Plus size={18} />
-            Buat order
-          </Link>
+          <div className="page-actions">
+            <button
+              className="btn secondary"
+              aria-label="Export CSV"
+              disabled={invalid || exporting.isPending}
+              onClick={() => exporting.mutate("csv")}
+            >
+              {exporting.isPending && exporting.variables === "csv" ? (
+                <LoaderCircle className="spin" size={17} />
+              ) : (
+                <Download size={17} />
+              )}
+              CSV
+            </button>
+            <button
+              className="btn secondary"
+              aria-label="Export Excel"
+              disabled={invalid || exporting.isPending}
+              onClick={() => exporting.mutate("xlsx")}
+            >
+              {exporting.isPending && exporting.variables === "xlsx" ? (
+                <LoaderCircle className="spin" size={17} />
+              ) : (
+                <FileSpreadsheet size={17} />
+              )}
+              Excel
+            </button>
+            <Link className="btn" href="/orders/new">
+              <Plus size={18} />
+              Buat order
+            </Link>
+          </div>
         }
       />
+      <ErrorMessage error={exporting.error} />
+      {feedback && (
+        <div className="notice success" role="status">
+          <Check size={18} />
+          {feedback}
+        </div>
+      )}
       <section className="panel">
         <div className="filter-bar">
           <div className="filter-label">
@@ -159,6 +216,10 @@ export default function OrdersPage() {
         )}
         {!invalid && <Pagination meta={list.data?.meta} onChange={setPage} />}
       </section>
+      <p className="page-hint">
+        Export mengikuti filter tanggal/pelanggan dan mencakup semua halaman. CSV berisi ringkasan
+        per order; Excel juga memuat detail item.
+      </p>
     </>
   );
 }

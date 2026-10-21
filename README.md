@@ -26,6 +26,10 @@ Project menggunakan **Track A (TypeScript)** dengan backend dan frontend sebagai
 Next.js API Routes dan Server Actions tidak dipakai sebagai backend utama. Browser memanggil
 REST API Express; hanya backend yang mengakses database.
 
+Pelaporan menggunakan **Recharts** untuk grafik SVG responsive dan akses keyboard, serta
+**ExcelJS** untuk workbook XLSX dengan sheet terpisah, tipe sel, dan format Rupiah.
+Parser CSV hanya menjadi dependency pengujian untuk memeriksa round-trip quoting/encoding.
+
 ## Setup lokal — enam perintah
 
 Prasyarat: **Node.js >=24**, **pnpm 10.33.0**, Docker Engine/Desktop dengan Compose v2,
@@ -122,6 +126,10 @@ independen minimal 32 karakter. Backend tetap satu-satunya service yang mengakse
   decimal-safe, error per item, server-side price snapshot dan stock validation.
 - Riwayat: filter tanggal dan pelanggan, pagination, detail termasuk master diarsipkan.
 - Dashboard: total transaksi, total penjualan, lima produk terlaris, stock < 5.
+- Grafik penjualan harian: pilihan 7/30/90 hari terakhir, tooltip Rupiah, tabel data harian,
+  dan hari tanpa transaksi bernilai nol dalam zona waktu Asia/Jakarta.
+- Export riwayat ke CSV atau Excel (.xlsx), mengikuti filter tanggal/pelanggan dan
+  mencakup semua halaman. Excel memisahkan ringkasan order dan detail item.
 - Responsive desktop/mobile, loading/empty/error/retry, dialog konfirmasi, format id-ID.
 
 ### Struktur dan tanggung jawab kode
@@ -192,11 +200,13 @@ Jalankan dari root repository setelah setup. `format:check` hanya memeriksa kons
 gunakan `pnpm format` untuk merapikan kode saat pengembangan.
 
 `lint` adalah **TypeScript type-check**, termasuk konfigurasi/test E2E; bukan klaim ESLint.
-`pnpm test` menjalankan 20 test: 4 test fondasi, 13 integration test, dan 3 test Swagger/OpenAPI.
+`pnpm test` menjalankan 27 test: 4 test fondasi, 20 integration test, dan 3 test Swagger/OpenAPI.
 Skenario mencakup sukses order, rollback
 item kedua, input/tampering/duplikat, tanpa/expired token, overselling paralel, nomor unik
 paralel, price snapshot, soft delete, refresh/logout, CRUD, filter, dashboard, validasi spesifikasi,
-akses dokumentasi, serta whitelist origin browser untuk Swagger.
+akses dokumentasi, whitelist origin browser untuk Swagger, agregasi harian/zero-fill,
+batas hari Jakarta, filter export seluruh halaman, quoting/formula-safe CSV, workbook XLSX,
+snapshot harga, data diarsipkan, dan file hasil kosong.
 
 Runner otomatis membuat `azatech_order_db_test` dan menerapkan migration dari database
 kosong. Integration suite melakukan TRUNCATE **hanya pada DB test**, tanpa mock transaksi.
@@ -214,8 +224,9 @@ pnpm test:e2e
 
 Runner membuat DB terpisah `azatech_order_db_e2e_test`, migrate/seed, lalu Playwright
 menjalankan backend dan frontend production pada 4000/3100. Tidak menggunakan ulang server
-development. Dua test mencakup alur CRUD→order→stock error→history snapshot→logout,
-session restore, proteksi route, navigasi mobile, loading/empty/error/retry dan expiry.
+development. Tiga test mencakup alur CRUD→order→stock error→history snapshot→logout,
+session restore, proteksi route, navigasi mobile, loading/empty/error/retry, expiry,
+periode grafik, filter export CSV/Excel, serta refresh token sebelum retry unduhan.
 `E2E_DATABASE_URL` opsional, wajib DB terpisah berakhiran `_test`. Artefak screenshot/trace
 masuk folder test-results, diabaikan Git. Test E2E dapat menambah data berprefix E2E hanya
 di DB E2E; tidak mengubah database demo utama.
@@ -253,6 +264,24 @@ Source kontrak berada di `apps/backend/src/docs/openapi.ts` dan diuji menggunaka
 Parser. Jika menambahkan endpoint, sesuaikan kontrak serta test dokumentasinya. Browser origin
 yang diizinkan adalah `FRONTEND_URL` dan origin dari `API_PUBLIC_URL`. Untuk development,
 default-nya port 3200 dan 4000; Compose mengisi `API_PUBLIC_URL` dari root `PUBLIC_API_URL`.
+
+### Grafik harian dan export riwayat
+
+- `GET /api/dashboard/daily-sales?days=30`: rentang berakhir hari ini, termasuk hari ini,
+  maksimal 366 hari. Response memuat `from`, `to`, total periode, dan `series` berurutan
+  dengan nilai nol untuk hari tanpa transaksi. Agregasi memakai zona Asia/Jakarta dan Decimal.
+- Di dashboard, gunakan tombol **7 hari**, **30 hari**, atau **90 hari**. Kartu utama tetap
+  menampilkan total all-time; ringkasan grafik khusus periode terpilih. Recharts dipakai
+  untuk grafik responsive dan akses keyboard; tabel data harian menyediakan nilai lengkap.
+- `GET /api/orders/export?format=csv|xlsx&from=YYYY-MM-DD&to=YYYY-MM-DD&customer_id=UUID`:
+  endpoint terautentikasi yang mengembalikan file, bukan envelope JSON. Format default CSV;
+  error tetap menggunakan envelope JSON standar. Filter sama dengan riwayat, pagination diabaikan.
+- Pada riwayat, pilih filter lalu klik **CSV** atau **Excel**. CSV UTF-8 BOM berisi satu baris
+  per order dan nominal decimal string. Excel dibuat dengan ExcelJS, berisi sheet **Ringkasan
+  Order** dan **Detail Item**, nomor telepon sebagai teks, serta nominal sebagai sel angka.
+- Teks CSV yang berpotensi menjadi formula dinetralkan; quote, koma, dan newline di-escape.
+  Workbook menulis input teks sebagai string, bukan formula. Harga item berasal dari snapshot.
+  Hasil kosong tetap menghasilkan file dengan header. Export tidak mengubah data atau stok.
 
 ## Docker Compose seluruh service (bonus)
 
@@ -326,7 +355,8 @@ oleh GitHub pada tahap lokal ini; hasil lokal dicatat terpisah di dev-plan/EXECU
 - Tidak ada idempotency key order. Submit UI dicegah saat request berjalan, tetapi retry
   manual setelah jaringan putus perlu memeriksa riwayat terlebih dahulu. Idempotency key
   adalah peningkatan berikutnya.
-- Belum ada grafik penjualan harian dan export CSV/Excel (bonus opsional).
+- File export saat ini dibangun di memory setelah snapshot baca database. Untuk volume data
+  besar, tahap berikutnya adalah streaming/batching atau background job unduhan.
 
 ### Prioritas perbaikan berikutnya
 
@@ -336,7 +366,8 @@ oleh GitHub pada tahap lokal ini; hasil lokal dicatat terpisah di dev-plan/EXECU
 4. **Pagination low-stock, trigram index, dan cursor pagination** bila volume data bertambah.
 5. **Optimasi delivery dan observability**: image Docker multi-stage/pruned, logging terstruktur,
    metrik transaksi, dan pengujian browser tambahan.
-6. **Bonus pelaporan**: grafik penjualan harian dan export CSV/Excel setelah fitur inti stabil.
+6. **Pelaporan lanjutan**: filter rentang kustom pada grafik, export streaming/background,
+   dan agregat terindeks ketika volume transaksi bertambah.
 
 ## AI Usage
 

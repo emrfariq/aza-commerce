@@ -1,22 +1,18 @@
 import { Router } from "express";
-import { type Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { authSession } from "../../middlewares/auth.js";
 import { AppError, buildMeta, created, ok } from "../../utils/api-response.js";
-import { dayStart, numericId } from "../../utils/validation.js";
+import { numericId } from "../../utils/validation.js";
 import { toApi } from "../../utils/serialize.js";
-import { orderInput, orderList } from "./schema.js";
+import { orderExport, orderInput, orderList } from "./schema.js";
 import { createOrder, orderInclude } from "./service.js";
+import { buildOrderWhere } from "./filters.js";
+import { exportOrders } from "./export.js";
 
 export const ordersRouter = Router();
 ordersRouter.get("/", async (req, res) => {
   const q = orderList.parse(req.query);
-  // Inclusive calendar dates become [start, next-day start) in the business timezone.
-  const end = q.to ? new Date(dayStart(q.to).getTime() + 86400000) : undefined;
-  const where: Prisma.OrderWhereInput = {
-    customerId: q.customer_id,
-    orderDate: { ...(q.from ? { gte: dayStart(q.from) } : {}), ...(end ? { lt: end } : {}) },
-  };
+  const where = buildOrderWhere(q);
   const [total, rows] = await prisma.$transaction([
     prisma.order.count({ where }),
     prisma.order.findMany({
@@ -28,6 +24,17 @@ ordersRouter.get("/", async (req, res) => {
     }),
   ]);
   return ok(res, toApi(rows), "OK", buildMeta(q.page, q.per_page, total));
+});
+// Register before /:id so "export" is never interpreted as an order identifier.
+ordersRouter.get("/export", async (req, res) => {
+  const q = orderExport.parse(req.query);
+  const file = await exportOrders(q, q.format);
+  res.set({
+    "Content-Type": file.contentType,
+    "Content-Disposition": `attachment; filename="${file.filename}"`,
+    "Cache-Control": "no-store",
+  });
+  return res.status(200).send(file.body);
 });
 ordersRouter.get("/:id", async (req, res) => {
   const row = await prisma.order.findUnique({

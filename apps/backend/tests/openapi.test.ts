@@ -5,7 +5,7 @@ import { createApp } from "../src/app.js";
 import { openApiDocument } from "../src/docs/openapi.js";
 
 describe("Swagger and OpenAPI documentation", () => {
-  it("validates schemas, references, and all 19 implemented API operations", async () => {
+  it("validates schemas, references, and all 21 implemented API operations", async () => {
     // Parser dereferences in place; keep the source contract and server response unchanged.
     await SwaggerParser.validate(structuredClone(openApiDocument));
     const operations = Object.entries(openApiDocument.paths).flatMap(([path, item]) =>
@@ -33,7 +33,9 @@ describe("Swagger and OpenAPI documentation", () => {
         "GET /orders",
         "POST /orders",
         "GET /orders/{id}",
+        "GET /orders/export",
         "GET /dashboard/summary",
+        "GET /dashboard/daily-sales",
       ].sort(),
     );
     expect(openApiDocument.security).toEqual([{ bearerAuth: [] }]);
@@ -68,6 +70,8 @@ describe("Swagger and OpenAPI documentation", () => {
       "/api/customers",
       "/api/orders",
       "/api/dashboard/summary",
+      "/api/dashboard/daily-sales",
+      "/api/orders/export",
       "/api/health",
     ]) {
       expect((await request(createApp()).get(path)).status).toBe(401);

@@ -41,3 +41,12 @@ export type Summary = {
   top_products: { product: Product; quantity_sold: number }[];
   low_stock_products: Product[];
 };
+
+export type DailySalesPoint = { date: string; total_transactions: number; total_sales: string };
+export type DailySales = {
+  from: string;
+  to: string;
+  total_transactions: number;
+  total_sales: string;
+  series: DailySalesPoint[];
+};

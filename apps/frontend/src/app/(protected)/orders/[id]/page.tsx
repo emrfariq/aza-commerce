@@ -58,7 +58,7 @@ export default function OrderDetailPage() {
             <h2>Ringkasan transaksi</h2>
             <p className="muted">{order.order_number}</p>
           </div>
-          <span className="badge green">
+          <span className="badge success">
             <span className="dot" />
             Tercatat
           </span>

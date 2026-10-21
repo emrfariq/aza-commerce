@@ -65,7 +65,7 @@ export function refreshSession(): Promise<AuthData> {
   return refreshing;
 }
 
-export async function api<T>(path: string, options: RequestInit = {}): Promise<Envelope<T>> {
+async function authenticatedResponse(path: string, options: RequestInit = {}): Promise<Response> {
   let response = await send(path, options);
   if (response.status === 401) {
     try {
@@ -84,7 +84,29 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<E
       window.dispatchEvent(new Event("session-expired"));
     }
   }
-  return decode<T>(response);
+  return response;
+}
+
+export async function api<T>(path: string, options: RequestInit = {}): Promise<Envelope<T>> {
+  return decode<T>(await authenticatedResponse(path, options));
+}
+
+/** File downloads share the same Bearer token, single-flight refresh, and JSON error handling. */
+export async function downloadFile(path: string, fallbackName: string): Promise<void> {
+  const response = await authenticatedResponse(path);
+  if (!response.ok) await decode(response);
+  const blob = await response.blob();
+  const filename =
+    /filename="([^"]+)"/i.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ??
+    fallbackName;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export async function login(email: string, password: string): Promise<User> {

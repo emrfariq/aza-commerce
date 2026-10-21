@@ -17,6 +17,7 @@ import type { Order, Summary } from "@/lib/types";
 import { rupiah, tanggal } from "@/lib/format";
 import { Empty, ErrorState, Loading, PageTitle } from "@/components/ui";
 import { useAuth } from "@/providers";
+import DailySalesChart from "@/components/sales-chart";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -93,6 +94,7 @@ export default function DashboardPage() {
                 <p>Stok tersisa kurang dari 5</p>
               </article>
             </div>
+            <DailySalesChart />
             <div className="dashboard-grid">
               <section className="panel">
                 <div className="panel-heading">
@@ -149,7 +151,7 @@ export default function DashboardPage() {
                       Stok menipis
                     </h2>
                   </div>
-                  <span className="badge amber">{data.low_stock_products.length} produk</span>
+                  <span className="badge warning">{data.low_stock_products.length} produk</span>
                 </div>
                 <div className="stock-list">
                   {!data.low_stock_products.length ? (

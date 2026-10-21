@@ -121,7 +121,7 @@ export function Pagination({ meta, onChange }: { meta?: Meta; onChange: (page: n
 }
 export function StockBadge({ stock }: { stock: number }) {
   return (
-    <span className={`badge ${stock < 5 ? "amber" : "green"}`}>
+    <span className={`badge ${stock < 5 ? "warning" : "success"}`}>
       <span className="dot" />
       {stock} tersedia
     </span>

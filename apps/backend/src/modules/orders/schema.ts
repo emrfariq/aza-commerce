@@ -30,13 +30,21 @@ export const orderInput = z
     });
   });
 export type OrderInput = z.infer<typeof orderInput>;
-export const orderList = pagination
-  .extend({
-    from: dateOnly.optional(),
-    to: dateOnly.optional(),
-    customer_id: uuid.optional(),
+const filterFields = {
+  from: dateOnly.optional(),
+  to: dateOnly.optional(),
+  customer_id: uuid.optional(),
+};
+const validDateRange = (q: { from?: string; to?: string }) => !q.from || !q.to || q.from <= q.to;
+const dateRangeError = {
+  message: "Tanggal awal harus sebelum tanggal akhir",
+  path: ["to"],
+};
+export const orderList = pagination.extend(filterFields).refine(validDateRange, dateRangeError);
+export const orderExport = z
+  .object({
+    ...filterFields,
+    format: z.enum(["csv", "xlsx"]).default("csv"),
   })
-  .refine((q) => !q.from || !q.to || q.from <= q.to, {
-    message: "Tanggal awal harus sebelum tanggal akhir",
-    path: ["to"],
-  });
+  .refine(validDateRange, dateRangeError);
+export type OrderFilters = Pick<z.infer<typeof orderExport>, "from" | "to" | "customer_id">;

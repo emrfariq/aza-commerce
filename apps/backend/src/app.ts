@@ -23,6 +23,7 @@ export const createApp = () => {
     cors({
       origin: (origin, callback) => callback(null, isAllowedBrowserOrigin(origin)),
       credentials: true,
+      exposedHeaders: ["Content-Disposition"],
     }),
   );
   app.use(express.json({ limit: "100kb" }));
