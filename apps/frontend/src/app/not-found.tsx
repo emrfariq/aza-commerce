@@ -1,4 +1,5 @@
 import Link from "next/link";
+/** Menampilkan halaman 404 dengan tautan kembali ke dashboard saat alamat tidak ditemukan. */
 export default function NotFound() {
   return (
     <main className="full-state">

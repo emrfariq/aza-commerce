@@ -7,6 +7,9 @@ export const customerInput = z
     customer_address: z.string().trim().min(1).max(255),
     gender: z.enum(["Pria", "Wanita"]),
     birth_date: dateOnly.refine(
+      /*
+       * Menolak tanggal lahir yang melewati tanggal hari ini menurut zona waktu Jakarta.
+       */
       (v) => v <= jakartaDay(new Date()),
       "Tanggal lahir tidak boleh di masa depan",
     ),

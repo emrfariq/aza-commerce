@@ -6,14 +6,23 @@ import { ArrowRight, Check, Layers3, LoaderCircle, ShoppingBag } from "lucide-re
 import { useAuth } from "@/providers";
 import { ErrorMessage, FieldError, Loading } from "@/components/ui";
 
+/**
+ * Menampilkan form login dan mengelola status pemrosesan serta pesan error; pengguna yang sudah
+ * login diarahkan ke dashboard.
+ */
 export default function LoginPage() {
   const { user, loading, signIn } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** Mengalihkan pengguna ke dashboard ketika profil sesi sudah tersedia. */
   useEffect(() => {
     if (user) router.replace("/dashboard");
   }, [user, router]);
+  /**
+   * Membaca email dan password dari form, menjalankan signIn, lalu membuka dashboard; error
+   * ditampilkan dan status sibuk selalu dibersihkan.
+   */
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -43,9 +52,7 @@ export default function LoginPage() {
           <span className="login-pill">
             <span className="dot" /> YOUR BUSINESS, IN ORDER
           </span>
-          <h1>
-            AZACOMMERCE.
-          </h1>
+          <h1>AZACOMMERCE.</h1>
           <p>
             Produk, pelanggan, dan setiap penjualan.
             <br />

@@ -9,22 +9,31 @@ const adminConfig = z.object({
     .trim()
     .email()
     .max(150)
-    .transform((value) => value.toLowerCase()),
+    .transform(
+      /* Menyeragamkan email admin menjadi huruf kecil sebelum upsert. */ (value) =>
+        value.toLowerCase(),
+    ),
   SEED_ADMIN_PASSWORD: z
     .string()
     .min(8)
     .refine(
+      /*
+       * Membatasi password hingga 72 byte UTF-8 sesuai batas masukan bcrypt.
+       */
       (value) => Buffer.byteLength(value, "utf8") <= 72,
       "Password seed maksimal 72 byte untuk bcrypt",
     ),
 });
 
-/** Credentials come only from the ignored local environment, never from source defaults. */
+/**
+ * Memvalidasi konfigurasi admin dari environment lalu membuat akun dengan password bcrypt jika
+ * email belum ada. Akun yang sudah ada dipertahankan tanpa mengatur ulang kredensial.
+ */
 export async function seedAdmin() {
   const config = adminConfig.parse(process.env);
   return prisma.user.upsert({
     where: { email: config.SEED_ADMIN_EMAIL },
-    // Re-running setup must not silently reset an existing administrator's credentials.
+    // Menjalankan setup kembali tidak boleh mengatur ulang kredensial admin yang sudah ada.
     update: {},
     create: {
       name: config.SEED_ADMIN_NAME,

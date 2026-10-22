@@ -10,6 +10,10 @@ export const productInput = z
       .union([z.string(), z.number()])
       .transform(String)
       .refine(
+        /*
+         * Memastikan harga positif dengan maksimal sepuluh digit sebelum koma dan dua digit
+         * desimal.
+         */
         (v) => /^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(v) && Number(v) > 0,
         "Harga harus positif, maksimal 10 digit dan 2 desimal",
       ),

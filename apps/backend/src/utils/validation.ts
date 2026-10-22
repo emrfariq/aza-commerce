@@ -16,15 +16,27 @@ export const pagination = z.object({
 export const dateOnly = z
   .string()
   .regex(/^(?!0000)\d{4}-\d{2}-\d{2}$/, "Gunakan format YYYY-MM-DD (tahun minimal 0001)")
-  .refine((date) => {
-    // Date parsing normalizes invalid days (e.g. February 30); require a round-trip match.
-    const parsed = new Date(`${date}T00:00:00Z`);
-    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === date;
-  }, "Tanggal tidak valid");
+  .refine(
+    /*
+     * Memeriksa tanggal dengan konversi bolak-balik agar tanggal semu seperti 30 Februari
+     * ditolak, bukan dinormalisasi otomatis oleh Date.
+     */
+    (date) => {
+      // Date menormalisasi tanggal tidak valid seperti 30 Februari; cocokkan kembali hasil parsing dengan input.
+      const parsed = new Date(`${date}T00:00:00Z`);
+      return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === date;
+    },
+    "Tanggal tidak valid",
+  );
 
+/**
+ * Mengambil tanggal kalender YYYY-MM-DD menurut WIB dengan menggeser waktu UTC sebanyak tujuh
+ * jam.
+ */
 export function jakartaDay(date: Date): string {
-  // Asia/Jakarta uses UTC+7 without daylight-saving changes.
+  // Asia/Jakarta memakai UTC+7 tanpa perubahan waktu musim panas.
   return new Date(date.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+/** Membentuk Date untuk pukul 00.00 WIB pada tanggal yang diberikan sebagai batas awal filter. */
 export const dayStart = (day: string) => new Date(`${day}T00:00:00+07:00`);

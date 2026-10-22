@@ -10,9 +10,16 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
+/**
+ * Membaca dan memvalidasi variabel lingkungan dengan Zod; konfigurasi yang tidak sesuai langsung
+ * menghasilkan error.
+ */
 export const env = () => schema.parse(process.env);
 
-/** Only configured application origins may initiate credential-bearing browser requests. */
+/**
+ * Mengizinkan origin frontend dan API yang dikonfigurasi. Request tanpa header Origin tetap
+ * diterima, misalnya dari klien server atau terminal.
+ */
 export function isAllowedBrowserOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
   const config = env();

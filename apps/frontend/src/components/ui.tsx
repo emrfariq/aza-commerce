@@ -5,6 +5,10 @@ import { AlertCircle, ArrowLeft, ArrowRight, LoaderCircle, PackageOpen, X } from
 import type { Meta } from "@/lib/types";
 import { ApiError } from "@/lib/api";
 
+/**
+ * Menampilkan judul, keterangan, dan aksi opsional dengan susunan header yang konsisten
+ * antarhalaman.
+ */
 export function PageTitle({
   eyebrow,
   title,
@@ -27,6 +31,7 @@ export function PageTitle({
     </header>
   );
 }
+/** Menampilkan indikator pemuatan dengan role status agar proses juga dikenali pembaca layar. */
 export function Loading({ text = "Memuat data…" }: { text?: string }) {
   return (
     <div className="state" role="status">
@@ -35,6 +40,7 @@ export function Loading({ text = "Memuat data…" }: { text?: string }) {
     </div>
   );
 }
+/** Menampilkan keadaan data kosong beserta penjelasan dan tombol aksi opsional. */
 export function Empty({
   title = "Belum ada data",
   description = "Data akan tampil di sini setelah ditambahkan.",
@@ -55,6 +61,7 @@ export function Empty({
     </div>
   );
 }
+/** Menampilkan pesan gagal memuat data dan tombol mencoba ulang jika callback retry tersedia. */
 export function ErrorState({ error, retry }: { error: Error; retry?: () => void }) {
   return (
     <div className="state" role="alert">
@@ -69,6 +76,7 @@ export function ErrorState({ error, retry }: { error: Error; retry?: () => void 
     </div>
   );
 }
+/** Menampilkan pemberitahuan error bila ada; nilai yang bukan objek Error memakai pesan umum. */
 export function ErrorMessage({ error }: { error: unknown }) {
   if (!error) return null;
   return (
@@ -78,6 +86,10 @@ export function ErrorMessage({ error }: { error: unknown }) {
     </div>
   );
 }
+/**
+ * Mengambil pesan validasi dari ApiError berdasarkan nama field agar error tampil di dekat input
+ * terkait.
+ */
 export function FieldError({ name, error }: { name: string; error: unknown }) {
   const messages = error instanceof ApiError ? error.fields[name] : undefined;
   return messages?.length ? (
@@ -86,6 +98,10 @@ export function FieldError({ name, error }: { name: string; error: unknown }) {
     </small>
   ) : null;
 }
+/**
+ * Menampilkan rentang data dan navigasi pagination dari metadata server serta menonaktifkan
+ * tombol di batas halaman.
+ */
 export function Pagination({ meta, onChange }: { meta?: Meta; onChange: (page: number) => void }) {
   if (!meta) return null;
   return (
@@ -100,7 +116,10 @@ export function Pagination({ meta, onChange }: { meta?: Meta; onChange: (page: n
           className="icon-btn"
           aria-label="Halaman sebelumnya"
           disabled={meta.page <= 1}
-          onClick={() => onChange(meta.page - 1)}
+          onClick={
+            /* Meminta komponen induk berpindah ke halaman sebelumnya. */ () =>
+              onChange(meta.page - 1)
+          }
         >
           <ArrowLeft size={17} />
         </button>
@@ -111,7 +130,10 @@ export function Pagination({ meta, onChange }: { meta?: Meta; onChange: (page: n
           className="icon-btn"
           aria-label="Halaman berikutnya"
           disabled={meta.page >= meta.total_pages}
-          onClick={() => onChange(meta.page + 1)}
+          onClick={
+            /* Meminta komponen induk berpindah ke halaman berikutnya. */ () =>
+              onChange(meta.page + 1)
+          }
         >
           <ArrowRight size={17} />
         </button>
@@ -119,6 +141,7 @@ export function Pagination({ meta, onChange }: { meta?: Meta; onChange: (page: n
     </div>
   );
 }
+/** Menampilkan jumlah stok dan memberi warna peringatan jika jumlahnya kurang dari lima. */
 export function StockBadge({ stock }: { stock: number }) {
   return (
     <span className={`badge ${stock < 5 ? "warning" : "success"}`}>
@@ -128,7 +151,10 @@ export function StockBadge({ stock }: { stock: number }) {
   );
 }
 
-/** Native dialog gives focus trapping, Escape handling and focus restoration. */
+/**
+ * Menampilkan modal dengan elemen dialog bawaan browser untuk pengelolaan fokus. Penutupan
+ * melalui Escape atau klik latar diblokir saat busy agar proses simpan tidak terganggu.
+ */
 export function Modal({
   title,
   children,
@@ -141,23 +167,36 @@ export function Modal({
   busy?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  /** Membuka dialog setelah elemen terpasang dan menyiapkan penutupan ketika komponen dilepas. */
   useEffect(() => {
     const dialog = ref.current;
     dialog?.showModal();
-    return () => dialog?.close();
+    return /* Menutup dialog saat effect dibersihkan. */ () => dialog?.close();
   }, []);
   return (
     <dialog
       ref={ref}
       className="modal"
       aria-labelledby="modal-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget && !busy) onClose();
-      }}
+      onCancel={
+        /*
+         * Mencegah penutupan bawaan lewat Escape dan meneruskan penutupan ke induk hanya
+         * saat tidak sibuk.
+         */
+        (event) => {
+          event.preventDefault();
+          if (!busy) onClose();
+        }
+      }
+      onClick={
+        /*
+         * Menutup modal hanya saat klik mengenai latar dialog dan tidak ada proses yang
+         * sedang berjalan.
+         */
+        (event) => {
+          if (event.target === event.currentTarget && !busy) onClose();
+        }
+      }
     >
       <div className="modal-heading">
         <h2 id="modal-title">{title}</h2>

@@ -6,13 +6,22 @@ import { toApi } from "../../utils/serialize.js";
 import { dailySales, dailySalesQuery } from "./sales.js";
 
 export const dashboardRouter = Router();
+/** Memvalidasi jumlah hari lalu mengirim agregasi penjualan harian dalam format respons API. */
 dashboardRouter.get("/daily-sales", async (req, res) => {
   const { days } = dailySalesQuery.parse(req.query);
   return ok(res, toApi(await dailySales(days)));
 });
+/**
+ * Mengambil jumlah transaksi, total penjualan, lima produk terlaris, dan produk aktif dengan
+ * stok di bawah lima.
+ */
 dashboardRouter.get("/summary", async (_req, res) => {
-  // RepeatableRead keeps cards and rankings on the same snapshot during concurrent sales.
+  // RepeatableRead menjaga kartu ringkasan dan peringkat membaca snapshot yang sama saat ada penjualan bersamaan.
   const data = await prisma.$transaction(
+    /*
+     * Membaca seluruh angka ringkasan dalam snapshot RepeatableRead yang sama agar kartu dan
+     * peringkat tetap konsisten saat ada transaksi bersamaan.
+     */
     async (tx) => {
       const totals = await tx.order.aggregate({
         _count: { id: true },
@@ -24,9 +33,18 @@ dashboardRouter.get("/summary", async (_req, res) => {
         orderBy: [{ _sum: { quantity: "desc" } }, { productId: "asc" }],
         take: 5,
       });
-      // Historical rankings include archived products; low-stock warnings include active ones only.
+      // Peringkat historis mencakup produk arsip; peringatan stok rendah hanya mencakup produk aktif.
       const products = await tx.product.findMany({
-        where: { id: { in: top.map((item) => item.productId) } },
+        where: {
+          id: {
+            in: top.map(
+              /*
+               * Mengambil ID produk terlaris untuk memuat informasi katalog yang diperlukan.
+               */
+              (item) => item.productId,
+            ),
+          },
+        },
       });
       const lowStock = await tx.product.findMany({
         where: { deletedAt: null, stock: { lt: 5 } },
@@ -35,10 +53,21 @@ dashboardRouter.get("/summary", async (_req, res) => {
       return {
         totalTransactions: totals._count.id,
         totalSales: totals._sum.totalAmount ?? new Prisma.Decimal(0),
-        topProducts: top.map((item) => ({
-          product: products.find((product) => product.id === item.productId),
-          quantitySold: item._sum.quantity ?? 0,
-        })),
+        topProducts: top.map(
+          /*
+           * Menggabungkan informasi produk dengan total kuantitas terjual untuk setiap
+           * posisi peringkat.
+           */
+          (item) => ({
+            product: products.find(
+              /*
+               * Mencocokkan produk katalog dengan ID produk hasil agregasi penjualan.
+               */
+              (product) => product.id === item.productId,
+            ),
+            quantitySold: item._sum.quantity ?? 0,
+          }),
+        ),
         lowStockProducts: lowStock,
       };
     },

@@ -25,6 +25,10 @@ const links = [
   { href: "/customers", label: "Pelanggan", icon: Users },
   { href: "/orders", label: "Riwayat order", icon: ReceiptText },
 ];
+/**
+ * Menyusun area kerja berisi navigasi, identitas pengguna, dan isi halaman. Menangani
+ * pemeriksaan sesi serta pengalihan ke login sebelum menampilkan konten terlindungi.
+ */
 export default function Shell({ children }: { children: ReactNode }) {
   const { user, loading, error, retry, signOut } = useAuth();
   const router = useRouter();
@@ -32,9 +36,14 @@ export default function Shell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [logoutError, setLogoutError] = useState<unknown>(null);
   const [leaving, setLeaving] = useState(false);
+  /**
+   * Mengarahkan pengguna tanpa sesi ke login setelah pemeriksaan selesai dan tidak ada error
+   * koneksi.
+   */
   useEffect(() => {
     if (!loading && !user && !error) router.replace("/login");
   }, [loading, user, error, router]);
+  /** Menutup navigasi seluler setiap kali lokasi halaman berubah. */
   useEffect(() => {
     setOpen(false);
   }, [path]);
@@ -56,7 +65,17 @@ export default function Shell({ children }: { children: ReactNode }) {
         <Loading text="Mengarahkan ke halaman login…" />
       </main>
     );
-  const activeLabel = links.find((item) => path.startsWith(item.href))?.label ?? "Order baru";
+  const activeLabel =
+    links.find(
+      /*
+       * Mencari menu yang alamatnya cocok dengan halaman aktif untuk label navigasi.
+       */
+      (item) => path.startsWith(item.href),
+    )?.label ?? "Order baru";
+  /**
+   * Menjalankan logout, menampilkan status sibuk, lalu mengarahkan ke login; kegagalan
+   * ditampilkan agar pengguna bisa mencoba kembali.
+   */
   async function logout() {
     setLeaving(true);
     setLogoutError(null);
@@ -75,7 +94,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         <button
           className="nav-overlay"
           aria-label="Tutup navigasi"
-          onClick={() => setOpen(false)}
+          onClick={/* Menutup navigasi seluler saat latar penutup diklik. */ () => setOpen(false)}
         />
       )}
       <aside className={`sidebar ${open ? "is-open" : ""}`}>
@@ -91,23 +110,29 @@ export default function Shell({ children }: { children: ReactNode }) {
         <button
           className="icon-btn mobile-close"
           aria-label="Tutup menu"
-          onClick={() => setOpen(false)}
+          onClick={/* Menutup navigasi melalui tombol tutup. */ () => setOpen(false)}
         >
           <X size={20} />
         </button>
         <p className="nav-label">WORKSPACE</p>
         <nav aria-label="Navigasi utama">
-          {links.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`nav-link ${path === href || (href === "/orders" && path.startsWith("/orders/") && path !== "/orders/new") ? "active" : ""}`}
-            >
-              <Icon size={19} />
-              <span>{label}</span>
-              <ChevronRight size={14} className="nav-chevron" />
-            </Link>
-          ))}
+          {links.map(
+            /* Membentuk tautan menu beserta ikon dan penanda halaman aktif. */ ({
+              href,
+              label,
+              icon: Icon,
+            }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-link ${path === href || (href === "/orders" && path.startsWith("/orders/") && path !== "/orders/new") ? "active" : ""}`}
+              >
+                <Icon size={19} />
+                <span>{label}</span>
+                <ChevronRight size={14} className="nav-chevron" />
+              </Link>
+            ),
+          )}
         </nav>
         <div className="sidebar-callout">
           <span className="callout-icon">
@@ -142,7 +167,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             <button
               className="icon-btn menu-btn"
               aria-label="Buka menu"
-              onClick={() => setOpen(true)}
+              onClick={/* Membuka navigasi seluler dari tombol menu. */ () => setOpen(true)}
             >
               <Menu size={21} />
             </button>

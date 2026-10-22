@@ -17,15 +17,21 @@ import type { DailySales, DailySalesPoint } from "@/lib/types";
 import { rupiah, tanggal } from "@/lib/format";
 import { Empty, ErrorState, Loading } from "./ui";
 
+/** Memformat tanggal seri menjadi label hari dan bulan dalam zona waktu Jakarta. */
 const shortDate = (date: string) =>
   new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
     month: "short",
     timeZone: "Asia/Jakarta",
   }).format(new Date(`${date}T00:00:00+07:00`));
+/** Menyingkat nominal rupiah pada sumbu grafik agar label angka besar tetap ringkas. */
 const compactRupiah = (value: number) =>
   `Rp ${new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(value)}`;
 
+/**
+ * Menampilkan tanggal, nilai penjualan asli, dan jumlah transaksi ketika titik grafik sedang
+ * disorot.
+ */
 function SalesTooltip({
   active,
   payload,
@@ -44,17 +50,28 @@ function SalesTooltip({
   );
 }
 
+/**
+ * Memuat dan menampilkan penjualan harian untuk periode 7, 30, atau 90 hari, lengkap dengan
+ * status loading, error, dan tabel data.
+ */
 export default function DailySalesChart() {
   const [days, setDays] = useState(30);
   const gradientId = `sales-${useId().replaceAll(":", "")}`;
   const query = useQuery({
     queryKey: ["dashboard", "daily-sales", days],
-    queryFn: () => api<DailySales>(`/dashboard/daily-sales?days=${days}`),
+    queryFn: /* Mengambil seri penjualan untuk jumlah hari yang sedang dipilih. */ () =>
+      api<DailySales>(`/dashboard/daily-sales?days=${days}`),
   });
   const data = query.data?.data;
-  // Numbers are for SVG coordinates only; totals and tooltip values come from server decimals.
+  // Number dipakai untuk koordinat SVG; total dan nilai tooltip tetap memakai nominal desimal dari server.
   const points =
-    data?.series.map((point) => ({ ...point, amount: Number(point.total_sales) })) ?? [];
+    data?.series.map(
+      /*
+       * Mengubah nominal menjadi number untuk koordinat grafik; nominal string asli tetap
+       * dipakai untuk tampilan nilai.
+       */
+      (point) => ({ ...point, amount: Number(point.total_sales) }),
+    ) ?? [];
   return (
     <section className="panel sales-chart-section" aria-label="Grafik penjualan harian">
       <div className="panel-heading sales-chart-heading">
@@ -66,16 +83,27 @@ export default function DailySalesChart() {
           </h2>
         </div>
         <div className="range-selector" role="group" aria-label="Periode grafik penjualan">
-          {[7, 30, 90].map((period) => (
-            <button
-              key={period}
-              className="range-button"
-              aria-pressed={days === period}
-              onClick={() => setDays(period)}
-            >
-              {period} hari
-            </button>
-          ))}
+          {[7, 30, 90].map(
+            /*
+             * Membentuk tombol pilihan periode dengan status aktif sesuai jumlah hari.
+             */
+            (period) => (
+              <button
+                key={period}
+                className="range-button"
+                aria-pressed={days === period}
+                onClick={
+                  /*
+                   * Mengubah periode sehingga query key berubah dan data periode baru
+                   * dimuat.
+                   */
+                  () => setDays(period)
+                }
+              >
+                {period} hari
+              </button>
+            ),
+          )}
         </div>
       </div>
       {query.isPending ? (
@@ -84,7 +112,12 @@ export default function DailySalesChart() {
         </div>
       ) : query.isError ? (
         <div className="sales-chart-state">
-          <ErrorState error={query.error} retry={() => void query.refetch()} />
+          <ErrorState
+            error={query.error}
+            retry={
+              /* Memuat ulang data grafik setelah kegagalan query. */ () => void query.refetch()
+            }
+          />
         </div>
       ) : (
         data && (
@@ -180,13 +213,18 @@ export default function DailySalesChart() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.series.map((point) => (
-                      <tr key={point.date}>
-                        <td>{tanggal(`${point.date}T00:00:00+07:00`)}</td>
-                        <td className="text-right">{point.total_transactions}</td>
-                        <td className="text-right">{rupiah(point.total_sales)}</td>
-                      </tr>
-                    ))}
+                    {data.series.map(
+                      /*
+                       * Membentuk satu baris tabel penjualan untuk setiap tanggal pada seri.
+                       */
+                      (point) => (
+                        <tr key={point.date}>
+                          <td>{tanggal(`${point.date}T00:00:00+07:00`)}</td>
+                          <td className="text-right">{point.total_transactions}</td>
+                          <td className="text-right">{rupiah(point.total_sales)}</td>
+                        </tr>
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>

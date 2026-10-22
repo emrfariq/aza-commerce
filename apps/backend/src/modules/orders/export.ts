@@ -36,10 +36,15 @@ const detailHeaders = [
   "Subtotal",
 ];
 
+/** Mengubah waktu order menjadi teks tanggal dan jam WIB untuk kolom ekspor. */
 function orderDateWib(date: Date): string {
   return new Date(date.getTime() + 7 * 3600000).toISOString().slice(0, 19).replace("T", " ");
 }
 
+/**
+ * Membentuk satu baris ringkasan per order, termasuk jumlah jenis produk, total kuantitas, dan
+ * total penjualan.
+ */
 function summaryRow(order: ExportOrder): (string | number)[] {
   return [
     order.orderNumber,
@@ -48,24 +53,39 @@ function summaryRow(order: ExportOrder): (string | number)[] {
     order.customer.phone ?? "",
     order.customer.customerAddress,
     order.items.length,
-    order.items.reduce((sum, item) => sum + item.quantity, 0),
+    order.items.reduce(
+      /* Menjumlahkan kuantitas seluruh item dalam satu order. */ (sum, item) =>
+        sum + item.quantity,
+      0,
+    ),
     order.totalAmount.toFixed(2),
     order.creator.name,
   ];
 }
 
+/**
+ * Mengamankan sel CSV dari formula spreadsheet dan menggandakan tanda kutip agar koma, kutip,
+ * serta baris baru tetap terbaca sebagai isi sel.
+ */
 function csvCell(value: string | number): string {
   let text = String(value);
-  // Quoting alone does not stop spreadsheet formulas in user-controlled names/addresses.
+  // Tanda kutip saja tidak menghentikan formula spreadsheet dalam nama atau alamat masukan pengguna.
   if (/^[\s\u0000-\u001f]*[=+\-@]/.test(text)) text = `'${text}`;
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+/** Menyiapkan kolom, lebar, filter, baris judul yang dibekukan, dan gaya header worksheet Excel. */
 function prepareSheet(sheet: ExcelJS.Worksheet, headers: string[], widths: number[]) {
-  sheet.columns = headers.map((header, index) => ({ header, width: widths[index] ?? 22 }));
+  sheet.columns = headers.map(
+    /*
+     * Memasangkan setiap judul kolom dengan lebar yang ditentukan atau nilai bawaan.
+     */
+    (header, index) => ({ header, width: widths[index] ?? 22 }),
+  );
   sheet.views = [{ state: "frozen", ySplit: 1 }];
   sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headers.length } };
   sheet.getRow(1).height = 24;
+  /** Memberi gaya tebal, warna latar, dan garis bawah pada setiap sel header. */
   sheet.getRow(1).eachCell((cell) => {
     cell.font = { bold: true, color: { argb: "FF403A32" } };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEBE3D5" } };
@@ -73,9 +93,18 @@ function prepareSheet(sheet: ExcelJS.Worksheet, headers: string[], widths: numbe
   });
 }
 
+/**
+ * Mengekspor semua order yang cocok dengan filter tanpa pagination. Data dibaca melalui
+ * RepeatableRead; CSV berisi ringkasan, sedangkan XLSX memuat ringkasan dan detail dengan harga
+ * transaksi tersimpan.
+ */
 export async function exportOrders(filters: OrderFilters, format: "csv" | "xlsx") {
-  // Capture relation data together; generating the workbook happens after the read transaction.
+  // Baca data beserta relasinya bersama; buat workbook setelah transaksi pembacaan selesai.
   const orders = await prisma.$transaction(
+    /*
+     * Membaca order beserta relasinya dalam transaksi dengan snapshot yang konsisten sebelum
+     * membuat berkas.
+     */
     (tx) =>
       tx.order.findMany({
         where: buildOrderWhere(filters),
@@ -86,9 +115,12 @@ export async function exportOrders(filters: OrderFilters, format: "csv" | "xlsx"
   );
   const filename = `riwayat-order-${jakartaDay(new Date()).replaceAll("-", "")}.${format}`;
   if (format === "csv") {
-    // One row per order prevents duplicated totals when an order contains multiple items.
-    const lines = [summaryHeaders, ...orders.map(summaryRow)].map((row) =>
-      row.map(csvCell).join(","),
+    // Satu baris per order mencegah total terhitung berulang ketika order memiliki beberapa item.
+    const lines = [summaryHeaders, ...orders.map(summaryRow)].map(
+      /*
+       * Mengamankan seluruh sel lalu menggabungkannya dengan koma menjadi satu baris CSV.
+       */
+      (row) => row.map(csvCell).join(","),
     );
     return {
       filename,
@@ -112,7 +144,7 @@ export async function exportOrders(filters: OrderFilters, format: "csv" | "xlsx"
     values[7] = Number(order.totalAmount.toFixed(2));
     summary.addRow(values);
     for (const item of order.items) {
-      // Stored unitPrice/subtotal remain authoritative even after catalog price changes.
+      // unitPrice dan subtotal tersimpan tetap menjadi acuan meskipun harga katalog berubah.
       details.addRow([
         order.orderNumber,
         orderDateWib(order.orderDate),

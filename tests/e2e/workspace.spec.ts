@@ -1,5 +1,9 @@
 import { expect, test, type Download, type Page } from "@playwright/test";
 
+/**
+ * Menjalankan login melalui browser menggunakan kredensial seed dan memastikan dashboard
+ * pengguna sudah tampil.
+ */
 async function login(page: Page) {
   await page.goto("/login");
   await page.getByLabel("Email", { exact: true }).fill(process.env.SEED_ADMIN_EMAIL!);
@@ -11,6 +15,10 @@ async function login(page: Page) {
   ).toBeVisible();
 }
 
+/**
+ * Membaca seluruh aliran unduhan Playwright menjadi Buffer untuk memeriksa isi berkas yang
+ * diunduh.
+ */
 async function downloadBuffer(download: Download): Promise<Buffer> {
   const stream = await download.createReadStream();
   if (!stream) throw new Error("Download stream unavailable");
@@ -19,6 +27,10 @@ async function downloadBuffer(download: Download): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+/**
+ * Menguji alur penjualan lengkap lewat UI: CRUD, error item, pembuatan order, konsistensi harga
+ * historis, dan logout.
+ */
 test("complete sales workflow: CRUD, item errors, snapshot history and logout", async ({
   page,
 }, testInfo) => {
@@ -87,6 +99,7 @@ test("complete sales workflow: CRUD, item errors, snapshot history and logout", 
   await expect(page).toHaveURL(/\/login$/);
 });
 
+/** Menguji navigasi seluler, tampilan loading dan error, serta pengalihan ketika sesi berakhir. */
 test("mobile navigation, data states and session expiry", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/products");
@@ -96,22 +109,39 @@ test("mobile navigation, data states and session expiry", async ({ page }, testI
   await page.getByRole("link", { name: "Produk", exact: true }).click();
   await page.getByLabel("Cari produk", { exact: true }).fill("nothing-matches-this-search");
   await expect(page.getByRole("heading", { name: "Tidak ada hasil pencarian" })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
+  expect(
+    await page.evaluate(
+      /*
+       * Memeriksa di browser bahwa lebar konten tidak melampaui viewport seluler.
+       */
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
   await page.screenshot({
     path: testInfo.outputPath("mobile-products.png"),
     fullPage: true,
     animations: "disabled",
   });
-  await page.route("**/api/products?**", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    await route.fulfill({
-      status: 500,
-      contentType: "application/json",
-      body: JSON.stringify({ success: false, message: "Server sedang mengalami kendala" }),
-    });
-  });
+  await page.route(
+    "**/api/products?**",
+    /*
+     * Mensimulasikan respons server 500 yang tertunda agar keadaan loading dan error bisa
+     * diamati.
+     */
+    async (route) => {
+      await new Promise(
+        /*
+         * Menunda respons tiruan selama 400 milidetik untuk pengujian indikator loading.
+         */
+        (resolve) => setTimeout(resolve, 400),
+      );
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ success: false, message: "Server sedang mengalami kendala" }),
+      });
+    },
+  );
   await page.getByLabel("Cari produk", { exact: true }).fill("error-state-test");
   await expect(page.getByRole("status")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Data belum dapat dimuat" })).toBeVisible();
@@ -123,6 +153,10 @@ test("mobile navigation, data states and session expiry", async ({ page }, testI
   await expect(page).toHaveURL(/\/login$/);
 });
 
+/**
+ * Menguji perubahan periode grafik dan unduhan CSV/XLSX sesuai filter, termasuk pemulihan access
+ * token lewat refresh.
+ */
 test("daily sales periods and filtered CSV/Excel downloads with token refresh", async ({
   page,
 }) => {
@@ -130,8 +164,12 @@ test("daily sales periods and filtered CSV/Excel downloads with token refresh", 
   const chart = page.getByRole("region", { name: "Grafik penjualan harian" });
   await expect(chart.locator(".recharts-area-curve")).toBeVisible();
   const [daily] = await Promise.all([
-    page.waitForResponse((response) =>
-      response.url().includes("/api/dashboard/daily-sales?days=7"),
+    page.waitForResponse(
+      /*
+       * Mengenali respons grafik untuk periode tujuh hari agar pengujian menunggu request
+       * yang tepat.
+       */
+      (response) => response.url().includes("/api/dashboard/daily-sales?days=7"),
     ),
     chart.getByRole("button", { name: "7 hari", exact: true }).click(),
   ]);
@@ -150,6 +188,9 @@ test("daily sales periods and filtered CSV/Excel downloads with token refresh", 
   await page.getByLabel("Cari Semua pelanggan", { exact: true }).fill("Budi Santoso");
   const [filtered] = await Promise.all([
     page.waitForResponse(
+      /*
+       * Mengenali request daftar order yang sudah menyertakan filter pelanggan.
+       */
       (response) =>
         new URL(response.url()).pathname === "/api/orders" &&
         new URL(response.url()).searchParams.has("customer_id"),
@@ -158,9 +199,12 @@ test("daily sales periods and filtered CSV/Excel downloads with token refresh", 
   ]);
   const expectedRows = (await filtered.json()).meta.total as number;
 
-  // A 401 must refresh credentials before retrying a binary download, just like JSON requests.
+  // Respons 401 harus memicu refresh sebelum unduhan biner diulang, sama seperti request JSON.
   await page.route(
     "**/api/orders/export?**",
+    /*
+     * Mengembalikan respons 401 tiruan untuk memicu mekanisme refresh token saat unduhan.
+     */
     (route) =>
       route.fulfill({
         status: 401,
@@ -171,7 +215,12 @@ test("daily sales periods and filtered CSV/Excel downloads with token refresh", 
   );
   const [csv, refreshed] = await Promise.all([
     page.waitForEvent("download"),
-    page.waitForResponse((response) => new URL(response.url()).pathname === "/api/auth/refresh"),
+    page.waitForResponse(
+      /*
+       * Mengenali respons endpoint refresh sebagai bukti pembaruan sesi terjadi.
+       */
+      (response) => new URL(response.url()).pathname === "/api/auth/refresh",
+    ),
     page.getByRole("button", { name: "Export CSV", exact: true }).click(),
   ]);
   expect(refreshed.status()).toBe(200);
@@ -180,7 +229,14 @@ test("daily sales periods and filtered CSV/Excel downloads with token refresh", 
   expect(text).toContain('"No. Order","Tanggal Order (WIB)"');
   const records = text.trimEnd().split("\r\n").slice(1);
   expect(records).toHaveLength(expectedRows);
-  expect(records.every((record) => record.includes("Budi Santoso"))).toBe(true);
+  expect(
+    records.every(
+      /*
+       * Memastikan setiap baris CSV sesuai dengan pelanggan yang dipilih pada filter.
+       */
+      (record) => record.includes("Budi Santoso"),
+    ),
+  ).toBe(true);
   expect(text).not.toContain("Bayu Nugroho");
 
   const [excel] = await Promise.all([

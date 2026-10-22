@@ -4,14 +4,34 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import { createApp } from "../src/app.js";
 import { openApiDocument } from "../src/docs/openapi.js";
 
+/** Mengelompokkan pengujian spesifikasi OpenAPI, halaman Swagger, dan batas akses dokumentasi. */
 describe("Swagger and OpenAPI documentation", () => {
+  /**
+   * Memvalidasi skema dan referensi OpenAPI serta memastikan seluruh 21 operasi API
+   * terdokumentasi.
+   */
   it("validates schemas, references, and all 21 implemented API operations", async () => {
-    // Parser dereferences in place; keep the source contract and server response unchanged.
+    // Parser mengubah referensi pada objek masukan; gunakan salinan agar kontrak sumber dan respons server tetap utuh.
     await SwaggerParser.validate(structuredClone(openApiDocument));
-    const operations = Object.entries(openApiDocument.paths).flatMap(([path, item]) =>
-      Object.keys(item ?? {})
-        .filter((method) => ["get", "post", "put", "delete"].includes(method))
-        .map((method) => `${method.toUpperCase()} ${path}`),
+    const operations = Object.entries(openApiDocument.paths).flatMap(
+      /*
+       * Mengembangkan setiap path menjadi daftar operasi HTTP yang didokumentasikan.
+       */
+      ([path, item]) =>
+        Object.keys(item ?? {})
+          .filter(
+            /*
+             * Memilih hanya metode HTTP implementasi, tanpa properti metadata path.
+             */
+            (method) => ["get", "post", "put", "delete"].includes(method),
+          )
+          .map(
+            /*
+             * Membentuk label METODE path agar daftar operasi mudah dibandingkan dalam
+             * assertion.
+             */
+            (method) => `${method.toUpperCase()} ${path}`,
+          ),
     );
     expect(operations.sort()).toEqual(
       [
@@ -43,6 +63,10 @@ describe("Swagger and OpenAPI documentation", () => {
     expect(openApiDocument.paths["/auth/refresh"]?.post?.security).toEqual([{ refreshCookie: [] }]);
   });
 
+  /**
+   * Memastikan halaman Swagger, aset lokal, dan spesifikasi JSON tersedia dari backend tanpa
+   * autentikasi.
+   */
   it("serves public Swagger HTML, local assets, and raw OpenAPI JSON from the backend", async () => {
     const app = createApp();
     const home = await request(app).get("/");
@@ -63,6 +87,10 @@ describe("Swagger and OpenAPI documentation", () => {
     ).toBeDefined();
   });
 
+  /**
+   * Memastikan akses publik ke dokumentasi tidak membuka endpoint bisnis yang tetap memerlukan
+   * token.
+   */
   it("keeps business endpoints protected when documentation is publicly accessible", async () => {
     for (const path of [
       "/api/auth/me",

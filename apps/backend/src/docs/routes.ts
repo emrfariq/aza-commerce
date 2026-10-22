@@ -4,7 +4,11 @@ import { openApiDocument } from "./openapi.js";
 
 export const docsRouter = Router();
 
-// Documentation is readable before login; business routers still use requireAuth.
+// Dokumentasi dapat dibaca sebelum login; router bisnis tetap dilindungi requireAuth.
+/**
+ * Menyajikan spesifikasi OpenAPI dalam JSON agar dapat dibaca Swagger atau alat pengujian API
+ * tanpa login.
+ */
 docsRouter.get("/api/openapi.json", (_req, res) => res.json(openApiDocument));
 docsRouter.use(
   "/api/docs",
@@ -21,4 +25,5 @@ docsRouter.use(
     },
   }),
 );
+/** Mengarahkan alamat utama backend ke halaman dokumentasi Swagger. */
 docsRouter.get("/", (_req, res) => res.redirect("/api/docs/"));

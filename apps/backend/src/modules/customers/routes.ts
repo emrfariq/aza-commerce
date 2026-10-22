@@ -6,6 +6,10 @@ import { toApi } from "../../utils/serialize.js";
 import { customerInput } from "./schema.js";
 
 export const customersRouter = Router();
+/**
+ * Mengambil pelanggan aktif dengan pencarian nama dan pagination, serta menghitung total untuk
+ * metadata halaman.
+ */
 customersRouter.get("/", async (req, res) => {
   const q = pagination.parse(req.query);
   const where = {
@@ -23,6 +27,7 @@ customersRouter.get("/", async (req, res) => {
   ]);
   return ok(res, toApi(rows), "OK", buildMeta(q.page, q.per_page, total));
 });
+/** Memvalidasi UUID dan mengambil satu pelanggan aktif; menghasilkan 404 jika tidak ditemukan. */
 customersRouter.get("/:id", async (req, res) => {
   const row = await prisma.customer.findFirst({
     where: { id: uuid.parse(req.params.id), deletedAt: null },
@@ -30,6 +35,10 @@ customersRouter.get("/:id", async (req, res) => {
   if (!row) throw AppError.notFound("Pelanggan tidak ditemukan");
   return ok(res, toApi(row));
 });
+/**
+ * Memvalidasi input, mengubah tanggal lahir menjadi Date dan telepon kosong menjadi null, lalu
+ * menyimpan pelanggan baru.
+ */
 customersRouter.post("/", async (req, res) => {
   const input = customerInput.parse(req.body);
   const row = await prisma.customer.create({
@@ -43,6 +52,7 @@ customersRouter.post("/", async (req, res) => {
   });
   return created(res, toApi(row), "Pelanggan ditambahkan");
 });
+/** Memvalidasi input dan memperbarui pelanggan yang masih aktif berdasarkan UUID. */
 customersRouter.put("/:id", async (req, res) => {
   const input = customerInput.parse(req.body);
   const row = await prisma.customer.update({
@@ -57,6 +67,10 @@ customersRouter.put("/:id", async (req, res) => {
   });
   return ok(res, toApi(row), "Pelanggan diperbarui");
 });
+/**
+ * Melakukan soft delete dengan mengisi deletedAt sehingga pelanggan hilang dari daftar aktif,
+ * sementara referensi riwayat order tetap tersimpan.
+ */
 customersRouter.delete("/:id", async (req, res) => {
   await prisma.customer.update({
     where: { id: uuid.parse(req.params.id), deletedAt: null },

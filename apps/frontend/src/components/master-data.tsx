@@ -19,9 +19,15 @@ import {
 } from "./ui";
 
 type Row = Product | Customer;
+/** Membedakan produk dari pelanggan melalui product_code sekaligus mempersempit tipe TypeScript. */
 const isProduct = (row: Row): row is Product => "product_code" in row;
+/** Mengambil nama produk atau pelanggan sesuai tipe baris untuk label yang dipakai bersama. */
 const rowName = (row: Row) => (isProduct(row) ? row.product_name : row.customer_name);
 
+/**
+ * Mengelola CRUD produk atau pelanggan dalam satu komponen: pencarian, pagination, form
+ * tambah/edit, konfirmasi hapus, dan penyegaran cache setelah perubahan.
+ */
 export default function MasterData({ kind }: { kind: "products" | "customers" }) {
   const product = kind === "products";
   const label = product ? "produk" : "pelanggan";
@@ -34,35 +40,63 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
   const client = useQueryClient();
   const list = useQuery({
     queryKey: [kind, { page, search, sort }],
-    queryFn: () =>
-      api<Row[]>(`/${kind}?${queryString({ page, search, ...(product ? { sort } : {}) })}`),
+    queryFn:
+      /*
+       * Memuat daftar sesuai halaman dan pencarian; parameter sort hanya dikirim untuk
+       * produk.
+       */
+      () => api<Row[]>(`/${kind}?${queryString({ page, search, ...(product ? { sort } : {}) })}`),
   });
   const save = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      api(`/${kind}${editing !== "new" && editing ? `/${editing.id}` : ""}`, {
-        method: editing === "new" ? "POST" : "PUT",
-        body: JSON.stringify(body),
-      }),
-    onSuccess: async () => {
-      setEditing(null);
-      setFeedback(`${product ? "Produk" : "Pelanggan"} berhasil disimpan.`);
-      await client.invalidateQueries();
-    },
+    mutationFn:
+      /*
+       * Mengirim POST untuk data baru atau PUT untuk data yang sedang diedit dengan body
+       * JSON.
+       */
+      (body: Record<string, unknown>) =>
+        api(`/${kind}${editing !== "new" && editing ? `/${editing.id}` : ""}`, {
+          method: editing === "new" ? "POST" : "PUT",
+          body: JSON.stringify(body),
+        }),
+    onSuccess:
+      /*
+       * Menutup form, memberi umpan balik sukses, dan menandai cache usang agar data terbaru
+       * dimuat.
+       */
+      async () => {
+        setEditing(null);
+        setFeedback(`${product ? "Produk" : "Pelanggan"} berhasil disimpan.`);
+        await client.invalidateQueries();
+      },
   });
   const remove = useMutation({
-    mutationFn: () => api(`/${kind}/${deleting!.id}`, { method: "DELETE" }),
-    onSuccess: async () => {
-      setDeleting(null);
-      setFeedback(`${product ? "Produk" : "Pelanggan"} berhasil dihapus.`);
-      if (list.data?.data.length === 1 && page > 1) setPage(page - 1);
-      await client.invalidateQueries();
-    },
+    mutationFn:
+      /*
+       * Mengirim permintaan hapus untuk baris yang telah dipilih dalam konfirmasi.
+       */
+      () => api(`/${kind}/${deleting!.id}`, { method: "DELETE" }),
+    onSuccess:
+      /*
+       * Menutup konfirmasi dan menyegarkan cache setelah penghapusan; mundur satu halaman
+       * jika baris terakhir di halaman lanjutan terhapus.
+       */
+      async () => {
+        setDeleting(null);
+        setFeedback(`${product ? "Produk" : "Pelanggan"} berhasil dihapus.`);
+        if (list.data?.data.length === 1 && page > 1) setPage(page - 1);
+        await client.invalidateQueries();
+      },
   });
+  /** Membuka form tambah atau edit sambil menghapus error dan pesan operasi sebelumnya. */
   function startEdit(row: Row | "new") {
     save.reset();
     setFeedback("");
     setEditing(row);
   }
+  /**
+   * Mencegah submit bawaan browser, membaca FormData, menyesuaikan tipe stok atau telepon, lalu
+   * menjalankan mutation simpan.
+   */
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const entries = Object.fromEntries(new FormData(event.currentTarget));
@@ -84,7 +118,10 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
             : "Kenali pelanggan dan kelola informasi mereka dengan mudah."
         }
         action={
-          <button className="btn" onClick={() => startEdit("new")}>
+          <button
+            className="btn"
+            onClick={/* Membuka form kosong untuk menambahkan data baru. */ () => startEdit("new")}
+          >
             <Plus size={18} />
             Tambah {label}
           </button>
@@ -104,10 +141,16 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
               aria-label={`Cari ${label}`}
               placeholder={product ? "Cari nama atau kode produk…" : "Cari nama pelanggan…"}
               value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
+              onChange={
+                /*
+                 * Memperbarui kata pencarian dan kembali ke halaman pertama agar hasil
+                 * sesuai filter baru.
+                 */
+                (event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }
+              }
             />
           </div>
           <div className="toolbar-right">
@@ -115,10 +158,16 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
               <select
                 aria-label="Urutkan produk"
                 value={sort}
-                onChange={(event) => {
-                  setSort(event.target.value);
-                  setPage(1);
-                }}
+                onChange={
+                  /*
+                   * Memperbarui pilihan pengurutan dan mengulang daftar dari halaman
+                   * pertama.
+                   */
+                  (event) => {
+                    setSort(event.target.value);
+                    setPage(1);
+                  }
+                }
               >
                 <option value="product_name">Nama A–Z</option>
                 <option value="-product_name">Nama Z–A</option>
@@ -136,7 +185,13 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
         {list.isPending ? (
           <Loading />
         ) : list.isError ? (
-          <ErrorState error={list.error} retry={() => void list.refetch()} />
+          <ErrorState
+            error={list.error}
+            retry={
+              /* Memuat ulang daftar ketika pengguna memilih mencoba lagi. */ () =>
+                void list.refetch()
+            }
+          />
         ) : !list.data.data.length ? (
           <Empty
             title={search ? "Tidak ada hasil pencarian" : `Belum ada ${label}`}
@@ -147,7 +202,12 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
             }
             action={
               !search && (
-                <button className="btn secondary" onClick={() => startEdit("new")}>
+                <button
+                  className="btn secondary"
+                  onClick={
+                    /* Membuka form tambah dari tampilan daftar kosong. */ () => startEdit("new")
+                  }
+                >
                   Tambah {label}
                 </button>
               )
@@ -177,66 +237,81 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
                 </tr>
               </thead>
               <tbody>
-                {list.data.data.map((row) => (
-                  <tr key={row.id}>
-                    {isProduct(row) ? (
-                      <>
-                        <td>
-                          <strong>{row.product_name}</strong>
-                        </td>
-                        <td>
-                          <span className="code-tag">{row.product_code}</span>
-                        </td>
-                        <td>
-                          <StockBadge stock={row.stock} />
-                        </td>
-                        <td className="text-right font-semibold">{rupiah(row.price)}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td>
-                          <div className="name-cell">
-                            <span className="customer-avatar">{row.customer_name.charAt(0)}</span>
-                            <strong>{row.customer_name}</strong>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="cell-stack">
-                            <span>{row.phone || "Nomor belum diisi"}</span>
-                            <small className="muted address-cell">{row.customer_address}</small>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="badge neutral">{row.gender}</span>
-                        </td>
-                        <td>{tanggal(`${row.birth_date}T00:00:00+07:00`)}</td>
-                      </>
-                    )}
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          className="icon-btn"
-                          aria-label={`Edit ${rowName(row)}`}
-                          title="Edit"
-                          onClick={() => startEdit(row)}
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          className="icon-btn danger-text"
-                          aria-label={`Hapus ${rowName(row)}`}
-                          title="Hapus"
-                          onClick={() => {
-                            remove.reset();
-                            setDeleting(row);
-                          }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {list.data.data.map(
+                  /*
+                   * Membentuk baris tabel dengan kolom produk atau pelanggan beserta tombol
+                   * aksinya.
+                   */
+                  (row) => (
+                    <tr key={row.id}>
+                      {isProduct(row) ? (
+                        <>
+                          <td>
+                            <strong>{row.product_name}</strong>
+                          </td>
+                          <td>
+                            <span className="code-tag">{row.product_code}</span>
+                          </td>
+                          <td>
+                            <StockBadge stock={row.stock} />
+                          </td>
+                          <td className="text-right font-semibold">{rupiah(row.price)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td>
+                            <div className="name-cell">
+                              <span className="customer-avatar">{row.customer_name.charAt(0)}</span>
+                              <strong>{row.customer_name}</strong>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="cell-stack">
+                              <span>{row.phone || "Nomor belum diisi"}</span>
+                              <small className="muted address-cell">{row.customer_address}</small>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge neutral">{row.gender}</span>
+                          </td>
+                          <td>{tanggal(`${row.birth_date}T00:00:00+07:00`)}</td>
+                        </>
+                      )}
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            className="icon-btn"
+                            aria-label={`Edit ${rowName(row)}`}
+                            title="Edit"
+                            onClick={
+                              /* Membuka form edit berisi data dari baris yang dipilih. */ () =>
+                                startEdit(row)
+                            }
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            className="icon-btn danger-text"
+                            aria-label={`Hapus ${rowName(row)}`}
+                            title="Hapus"
+                            onClick={
+                              /*
+                               * Membersihkan error hapus sebelumnya dan membuka konfirmasi
+                               * untuk baris yang dipilih.
+                               */
+                              () => {
+                                remove.reset();
+                                setDeleting(row);
+                              }
+                            }
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
@@ -251,7 +326,10 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
       {editing && (
         <Modal
           title={`${editing === "new" ? "Tambah" : "Edit"} ${label}`}
-          onClose={() => setEditing(null)}
+          onClose={
+            /* Menutup modal edit dengan mengosongkan data yang sedang diedit. */ () =>
+              setEditing(null)
+          }
           busy={save.isPending}
         >
           <form onSubmit={submit}>
@@ -373,7 +451,14 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
                 </>
               )}
               <div className="modal-actions">
-                <button className="btn secondary" type="button" onClick={() => setEditing(null)}>
+                <button
+                  className="btn secondary"
+                  type="button"
+                  onClick={
+                    /* Membatalkan form tanpa mengirim perubahan ke server. */ () =>
+                      setEditing(null)
+                  }
+                >
                   Batal
                 </button>
                 <button className="btn" type="submit">
@@ -385,7 +470,14 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
         </Modal>
       )}
       {deleting && (
-        <Modal title={`Hapus ${label}?`} onClose={() => setDeleting(null)} busy={remove.isPending}>
+        <Modal
+          title={`Hapus ${label}?`}
+          onClose={
+            /* Menutup modal konfirmasi hapus tanpa menjalankan penghapusan. */ () =>
+              setDeleting(null)
+          }
+          busy={remove.isPending}
+        >
           <p className="muted">
             Anda akan menghapus <strong>{rowName(deleting)}</strong> dari daftar aktif. Riwayat
             transaksi tetap tersimpan.
@@ -395,14 +487,22 @@ export default function MasterData({ kind }: { kind: "products" | "customers" })
             <button
               className="btn secondary"
               disabled={remove.isPending}
-              onClick={() => setDeleting(null)}
+              onClick={
+                /* Membatalkan pilihan penghapusan dari tombol batal. */ () => setDeleting(null)
+              }
             >
               Batal
             </button>
             <button
               className="btn destructive"
               disabled={remove.isPending}
-              onClick={() => remove.mutate()}
+              onClick={
+                /*
+                 * Menjalankan mutation hapus setelah pengguna mengonfirmasi baris yang
+                 * dipilih.
+                 */
+                () => remove.mutate()
+              }
             >
               {remove.isPending ? "Menghapus…" : `Ya, hapus ${label}`}
             </button>

@@ -4,13 +4,28 @@ import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
+/**
+ * Melengkapi variabel environment yang belum terisi tanpa menimpa nilai lokal yang sudah ada,
+ * lalu mengembalikan konfigurasi gabungannya.
+ */
 function ensure(relative, defaults) {
   const path = fileURLToPath(new URL(relative, root));
   const original = existsSync(path) ? readFileSync(path, "utf8") : "";
   const values = parseEnv(original);
   const additions = Object.entries(defaults)
-    .filter(([key]) => !values[key])
-    .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+    .filter(
+      /*
+       * Memilih hanya variabel yang belum memiliki nilai dalam berkas environment.
+       */
+      ([key]) => !values[key],
+    )
+    .map(
+      /*
+       * Menyusun baris KEY=value dengan nilai berformat string JSON agar karakter khusus
+       * tetap terwakili.
+       */
+      ([key, value]) => `${key}=${JSON.stringify(value)}`,
+    )
     .join("\n");
   if (additions) writeFileSync(path, `${original.trimEnd()}\n${additions}\n`, "utf8");
   console.log(`Environment ready: ${relative} (existing values preserved)`);

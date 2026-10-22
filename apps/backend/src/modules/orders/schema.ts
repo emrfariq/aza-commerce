@@ -17,24 +17,38 @@ export const orderInput = z
       .max(100),
   })
   .strict()
-  .superRefine((input, ctx) => {
-    const seen = new Set<number>();
-    input.items.forEach((item, index) => {
-      if (seen.has(item.product_id))
-        ctx.addIssue({
-          code: "custom",
-          path: ["items", index, "product_id"],
-          message: "Produk sudah dipilih pada baris lain",
-        });
-      seen.add(item.product_id);
-    });
-  });
+  .superRefine(
+    /*
+     * Memvalidasi aturan antarbaris agar satu produk tidak muncul lebih dari sekali dalam
+     * order.
+     */
+    (input, ctx) => {
+      const seen = new Set<number>();
+      /**
+       * Mencatat ID produk yang sudah dipilih dan menambahkan error pada baris yang mengulang
+       * produk tersebut.
+       */
+      input.items.forEach((item, index) => {
+        if (seen.has(item.product_id))
+          ctx.addIssue({
+            code: "custom",
+            path: ["items", index, "product_id"],
+            message: "Produk sudah dipilih pada baris lain",
+          });
+        seen.add(item.product_id);
+      });
+    },
+  );
 export type OrderInput = z.infer<typeof orderInput>;
 const filterFields = {
   from: dateOnly.optional(),
   to: dateOnly.optional(),
   customer_id: uuid.optional(),
 };
+/**
+ * Memastikan tanggal awal tidak melewati tanggal akhir; filter dengan salah satu batas kosong
+ * tetap diperbolehkan.
+ */
 const validDateRange = (q: { from?: string; to?: string }) => !q.from || !q.to || q.from <= q.to;
 const dateRangeError = {
   message: "Tanggal awal harus sebelum tanggal akhir",

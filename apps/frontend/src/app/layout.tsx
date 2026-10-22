@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   title: { default: "Aza Commerce — Order Management", template: "%s | Aza Commerce" },
   description: "Workspace produk, pelanggan, dan penjualan Anda.",
 };
+/**
+ * Menyusun kerangka HTML berbahasa Indonesia dan membungkus seluruh halaman dengan provider
+ * cache serta autentikasi.
+ */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="id">

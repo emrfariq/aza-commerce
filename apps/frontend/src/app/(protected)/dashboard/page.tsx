@@ -19,15 +19,21 @@ import { Empty, ErrorState, Loading, PageTitle } from "@/components/ui";
 import { useAuth } from "@/providers";
 import DailySalesChart from "@/components/sales-chart";
 
+/**
+ * Menampilkan ringkasan bisnis, produk terlaris, peringatan stok, dan lima order terbaru dengan
+ * query yang dapat dimuat ulang secara terpisah.
+ */
 export default function DashboardPage() {
   const { user } = useAuth();
   const summary = useQuery({
     queryKey: ["dashboard"],
-    queryFn: () => api<Summary>("/dashboard/summary"),
+    queryFn: /* Memuat angka ringkasan dan daftar produk untuk kartu dashboard. */ () =>
+      api<Summary>("/dashboard/summary"),
   });
   const recent = useQuery({
     queryKey: ["orders", "recent"],
-    queryFn: () => api<Order[]>("/orders?per_page=5"),
+    queryFn: /* Mengambil lima order terbaru untuk tabel aktivitas penjualan. */ () =>
+      api<Order[]>("/orders?per_page=5"),
   });
   const data = summary.data?.data;
   return (
@@ -49,7 +55,13 @@ export default function DashboardPage() {
         </div>
       ) : summary.isError ? (
         <div className="panel">
-          <ErrorState error={summary.error} retry={() => void summary.refetch()} />
+          <ErrorState
+            error={summary.error}
+            retry={
+              /* Mencoba kembali query ringkasan dashboard yang gagal. */ () =>
+                void summary.refetch()
+            }
+          />
         </div>
       ) : (
         data && (
@@ -114,31 +126,36 @@ export default function DashboardPage() {
                   />
                 ) : (
                   <div className="ranking-list">
-                    {data.top_products.map((item, index) => (
-                      <div className="ranking-row" key={item.product.id}>
-                        <span className={`ranking-number ${index === 0 ? "first" : ""}`}>
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <div className="ranking-info">
-                          <strong>{item.product.product_name}</strong>
-                          <span>
-                            {item.product.product_code}
-                            {item.product.deleted_at ? " · Diarsipkan" : ""}
+                    {data.top_products.map(
+                      /* Membentuk baris peringkat produk berdasarkan kuantitas terjual. */ (
+                        item,
+                        index,
+                      ) => (
+                        <div className="ranking-row" key={item.product.id}>
+                          <span className={`ranking-number ${index === 0 ? "first" : ""}`}>
+                            {String(index + 1).padStart(2, "0")}
                           </span>
-                          <div className="rank-track">
-                            <span
-                              style={{
-                                width: `${(item.quantity_sold / (data.top_products[0]?.quantity_sold || 1)) * 100}%`,
-                              }}
-                            />
+                          <div className="ranking-info">
+                            <strong>{item.product.product_name}</strong>
+                            <span>
+                              {item.product.product_code}
+                              {item.product.deleted_at ? " · Diarsipkan" : ""}
+                            </span>
+                            <div className="rank-track">
+                              <span
+                                style={{
+                                  width: `${(item.quantity_sold / (data.top_products[0]?.quantity_sold || 1)) * 100}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="ranking-qty">
+                            <strong>{item.quantity_sold}</strong>
+                            <small>terjual</small>
                           </div>
                         </div>
-                        <div className="ranking-qty">
-                          <strong>{item.quantity_sold}</strong>
-                          <small>terjual</small>
-                        </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 )}
               </section>
@@ -160,20 +177,26 @@ export default function DashboardPage() {
                       description="Tidak ada produk dengan stok di bawah 5."
                     />
                   ) : (
-                    data.low_stock_products.map((item) => (
-                      <div className="stock-row" key={item.id}>
-                        <div className="product-mini">
-                          <Package size={18} />
+                    data.low_stock_products.map(
+                      /*
+                       * Menampilkan produk dengan stok rendah beserta jumlah stok yang
+                       * tersisa.
+                       */
+                      (item) => (
+                        <div className="stock-row" key={item.id}>
+                          <div className="product-mini">
+                            <Package size={18} />
+                          </div>
+                          <div className="grow">
+                            <strong>{item.product_name}</strong>
+                            <small>{item.product_code}</small>
+                          </div>
+                          <span className={`stock-count ${item.stock === 0 ? "zero" : ""}`}>
+                            {item.stock === 0 ? "Habis" : `${item.stock} unit`}
+                          </span>
                         </div>
-                        <div className="grow">
-                          <strong>{item.product_name}</strong>
-                          <small>{item.product_code}</small>
-                        </div>
-                        <span className={`stock-count ${item.stock === 0 ? "zero" : ""}`}>
-                          {item.stock === 0 ? "Habis" : `${item.stock} unit`}
-                        </span>
-                      </div>
-                    ))
+                      ),
+                    )
                   )}
                 </div>
                 <Link href="/products" className="panel-link">
@@ -197,7 +220,12 @@ export default function DashboardPage() {
         {recent.isPending ? (
           <Loading />
         ) : recent.isError ? (
-          <ErrorState error={recent.error} retry={() => void recent.refetch()} />
+          <ErrorState
+            error={recent.error}
+            retry={
+              /* Mencoba kembali query order terbaru yang gagal. */ () => void recent.refetch()
+            }
+          />
         ) : !recent.data.data.length ? (
           <Empty
             title="Belum ada order"
@@ -220,27 +248,32 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recent.data.data.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <Link className="order-number" href={`/orders/${item.id}`}>
-                        {item.order_number}
-                      </Link>
-                    </td>
-                    <td>{item.customer.customer_name}</td>
-                    <td className="muted">{tanggal(item.order_date)}</td>
-                    <td className="text-right font-semibold">{rupiah(item.total_amount)}</td>
-                    <td>
-                      <Link
-                        className="icon-btn"
-                        aria-label={`Detail ${item.order_number}`}
-                        href={`/orders/${item.id}`}
-                      >
-                        <ArrowUpRight size={17} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {recent.data.data.map(
+                  /*
+                   * Membentuk baris order terbaru dengan tautan menuju halaman detailnya.
+                   */
+                  (item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <Link className="order-number" href={`/orders/${item.id}`}>
+                          {item.order_number}
+                        </Link>
+                      </td>
+                      <td>{item.customer.customer_name}</td>
+                      <td className="muted">{tanggal(item.order_date)}</td>
+                      <td className="text-right font-semibold">{rupiah(item.total_amount)}</td>
+                      <td>
+                        <Link
+                          className="icon-btn"
+                          aria-label={`Detail ${item.order_number}`}
+                          href={`/orders/${item.id}`}
+                        >
+                          <ArrowUpRight size={17} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>

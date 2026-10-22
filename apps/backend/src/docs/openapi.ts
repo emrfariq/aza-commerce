@@ -1,12 +1,15 @@
 import type { OpenAPIV3 } from "openapi-types";
 
 type Schema = OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject;
+/** Membuat referensi ke skema OpenAPI agar definisi model dapat dipakai ulang tanpa disalin. */
 const schemaRef = (name: string): OpenAPIV3.ReferenceObject => ({
   $ref: `#/components/schemas/${name}`,
 });
+/** Membuat referensi ke parameter OpenAPI yang digunakan bersama oleh beberapa endpoint. */
 const parameterRef = (name: string): OpenAPIV3.ReferenceObject => ({
   $ref: `#/components/parameters/${name}`,
 });
+/** Membuat referensi ke definisi respons OpenAPI, misalnya respons error yang seragam. */
 const responseRef = (name: string): OpenAPIV3.ReferenceObject => ({
   $ref: `#/components/responses/${name}`,
 });
@@ -59,6 +62,10 @@ const orderFields: Record<string, Schema> = {
   ...timestamps,
 };
 
+/**
+ * Membentuk skema pembungkus respons sukses berisi success, message, dan data; meta ditambahkan
+ * untuk daftar berpaginasi.
+ */
 function envelope(data: Schema, paginated = false): OpenAPIV3.SchemaObject {
   return {
     type: "object",
@@ -72,10 +79,15 @@ function envelope(data: Schema, paginated = false): OpenAPIV3.SchemaObject {
   };
 }
 
+/**
+ * Membungkus skema dan deskripsi menjadi dokumentasi respons dengan tipe konten
+ * application/json.
+ */
 function jsonResponse(schema: Schema, description = "Berhasil"): OpenAPIV3.ResponseObject {
   return { description, content: { "application/json": { schema } } };
 }
 
+/** Mendokumentasikan body JSON wajib dengan merujuk nama skema input yang sudah didefinisikan. */
 function requestBody(schema: string): OpenAPIV3.RequestBodyObject {
   return { required: true, content: { "application/json": { schema: schemaRef(schema) } } };
 }
@@ -90,6 +102,10 @@ const bodyErrors: OpenAPIV3.ResponsesObject = {
   "422": responseRef("ValidationError"),
 };
 
+/**
+ * Menghasilkan dokumentasi endpoint CRUD produk atau pelanggan dari pola yang sama, dengan
+ * parameter ID dan aturan khusus masing-masing resource.
+ */
 function masterPaths(
   resource: "products" | "customers",
   tag: string,
@@ -198,7 +214,7 @@ export const openApiDocument: OpenAPIV3.Document = {
       "Dokumentasi dapat dibuka tanpa login. Semua endpoint bisnis tetap memerlukan autentikasi. Nominal uang pada response berupa string decimal dua digit; zona waktu bisnis Asia/Jakarta.",
     ].join("\n\n"),
   },
-  // Relative URL follows the same public origin/port that serves Swagger, including Docker.
+  // URL relatif mengikuti origin dan port publik yang menyajikan Swagger, termasuk ketika memakai Docker.
   servers: [{ url: "/api", description: "Backend yang sedang dibuka" }],
   tags: [
     { name: "Authentication", description: "Login, refresh rotasi, profil, dan pencabutan sesi." },

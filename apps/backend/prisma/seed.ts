@@ -42,6 +42,11 @@ const customerNames = [
   "Bayu Nugroho",
 ];
 
+/**
+ * Menyiapkan admin, 20 produk, 15 pelanggan, dan target minimal 30 order demo. Upsert
+ * mempertahankan data yang sudah ada; order dibuat melalui service bisnis agar stok dan total
+ * mengikuti aturan aplikasi.
+ */
 async function seed() {
   const user = await seedAdmin();
   const products = [];
@@ -77,7 +82,7 @@ async function seed() {
       }),
     );
   }
-  // Never reset or replenish existing data; subsequent runs only fill the demo order target.
+  // Pertahankan data dan stok yang ada; pengulangan seed hanya melengkapi target jumlah order demo.
   const count = await prisma.order.count({ where: { createdBy: user.id } });
   for (let index = count; index < 30; index++) {
     const customer = customers[index % customers.length]!;
@@ -101,9 +106,12 @@ async function seed() {
   );
 }
 
+/** Melepas koneksi Prisma setelah seed selesai maupun gagal. */
 seed()
-  .catch((error: unknown) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
+  .catch(
+    /* Mencatat kegagalan seed dan menandai proses dengan kode gagal. */ (error: unknown) => {
+      console.error(error);
+      process.exitCode = 1;
+    },
+  )
   .finally(() => prisma.$disconnect());

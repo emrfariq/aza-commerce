@@ -9,9 +9,17 @@ import type { Order } from "@/lib/types";
 import { rupiah, tanggal } from "@/lib/format";
 import { ErrorState, Loading, PageTitle } from "@/components/ui";
 
+/**
+ * Mengambil ID dari URL dan menampilkan detail order, informasi pelanggan, serta harga item yang
+ * tersimpan saat transaksi.
+ */
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const query = useQuery({ queryKey: ["orders", id], queryFn: () => api<Order>(`/orders/${id}`) });
+  const query = useQuery({
+    queryKey: ["orders", id],
+    queryFn: /* Mengambil detail order berdasarkan parameter ID halaman. */ () =>
+      api<Order>(`/orders/${id}`),
+  });
   if (query.isPending)
     return (
       <div className="panel">
@@ -21,7 +29,12 @@ export default function OrderDetailPage() {
   if (query.isError)
     return (
       <div className="panel">
-        <ErrorState error={query.error} retry={() => void query.refetch()} />
+        <ErrorState
+          error={query.error}
+          retry={
+            /* Mencoba memuat ulang detail order setelah query gagal. */ () => void query.refetch()
+          }
+        />
         <Link className="back-link p-6" href="/orders">
           Kembali ke riwayat
         </Link>
@@ -100,22 +113,28 @@ export default function OrderDetailPage() {
               </tr>
             </thead>
             <tbody>
-              {order.items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <div className="cell-stack">
-                      <strong>{item.product.product_name}</strong>
-                      <small className="muted">
-                        {item.product.product_code}
-                        {item.product.deleted_at ? " · Diarsipkan" : ""}
-                      </small>
-                    </div>
-                  </td>
-                  <td className="text-right">{rupiah(item.unit_price)}</td>
-                  <td className="text-right">{item.quantity}</td>
-                  <td className="text-right font-semibold">{rupiah(item.subtotal)}</td>
-                </tr>
-              ))}
+              {order.items.map(
+                /*
+                 * Menampilkan satu item order dengan harga satuan dan subtotal snapshot dari
+                 * server.
+                 */
+                (item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="cell-stack">
+                        <strong>{item.product.product_name}</strong>
+                        <small className="muted">
+                          {item.product.product_code}
+                          {item.product.deleted_at ? " · Diarsipkan" : ""}
+                        </small>
+                      </div>
+                    </td>
+                    <td className="text-right">{rupiah(item.unit_price)}</td>
+                    <td className="text-right">{item.quantity}</td>
+                    <td className="text-right font-semibold">{rupiah(item.subtotal)}</td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
         </div>
