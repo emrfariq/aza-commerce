@@ -1,0 +1,204 @@
+{
+  "node_count": 555,
+  "unverified_node_count": 0,
+  "raw_edge_count": 1137,
+  "non_object_edges": 0,
+  "missing_endpoint_edges": 0,
+  "dangling_endpoint_edges": 3,
+  "external_reference_edges": 7,
+  "self_loop_edges": 1,
+  "valid_candidate_edges": 1127,
+  "exact_duplicate_edges": 0,
+  "directed_unique_endpoint_pairs": 1107,
+  "directed_same_endpoint_collapsed_edges": 20,
+  "undirected_unique_endpoint_pairs": 1102,
+  "undirected_same_endpoint_collapsed_edges": 25,
+  "same_endpoint_group_count": 20,
+  "relation_variant_groups": 15,
+  "source_file_variant_groups": 0,
+  "source_location_variant_groups": 5,
+  "context_variant_groups": 0,
+  "post_build_graph_type": "Graph",
+  "post_build_node_count": 564,
+  "post_build_edge_count": 1112,
+  "post_build_error": "",
+  "producer_suppression": {
+    "path": "C:\\Users\\Merr\\AppData\\Roaming\\uv\\tools\\graphifyy\\Lib\\site-packages\\graphify\\extract.py",
+    "total_sites": 12,
+    "sites": [
+      {
+        "line": 1813,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 2377,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 2379,
+        "name": "seen_doc_refs",
+        "tuple_arity": 0,
+        "sample": "seen_doc_refs: set[str] = set()"
+      },
+      {
+        "line": 3046,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = {n[\"id\"] for n in nodes}"
+      },
+      {
+        "line": 3193,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids = {n.get(\"id\") for n in nodes}"
+      },
+      {
+        "line": 4203,
+        "name": "seen_keys",
+        "tuple_arity": 0,
+        "sample": "seen_keys: set[tuple] = set()"
+      },
+      {
+        "line": 4389,
+        "name": "seen_keys",
+        "tuple_arity": 0,
+        "sample": "seen_keys: set[tuple] = set()"
+      },
+      {
+        "line": 7641,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 7749,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 7828,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 8343,
+        "name": "seen_ids",
+        "tuple_arity": 0,
+        "sample": "seen_ids: set[str] = set()"
+      },
+      {
+        "line": 8344,
+        "name": "seen_edges",
+        "tuple_arity": 4,
+        "sample": "seen_edges: set[tuple[str, str, str, str | None]] = set()"
+      }
+    ],
+    "error": ""
+  },
+  "examples": [
+    {
+      "source": "apps_backend_src_docs_openapi",
+      "target": "apps_backend_src_docs_openapi_parameterref",
+      "edge_count": 2,
+      "relations": [
+        "contains",
+        "indirect_call"
+      ],
+      "source_files": [
+        "apps/backend/src/docs/openapi.ts"
+      ],
+      "source_locations": [
+        "L302",
+        "L7"
+      ],
+      "contexts": [
+        "",
+        "argument"
+      ]
+    },
+    {
+      "source": "apps_backend_src_middlewares_auth",
+      "target": "apps_backend_src_middlewares_auth_authsession",
+      "edge_count": 2,
+      "relations": [
+        "contains"
+      ],
+      "source_files": [
+        "apps/backend/src/middlewares/auth.ts"
+      ],
+      "source_locations": [
+        "L6",
+        "L7"
+      ],
+      "contexts": [
+        ""
+      ]
+    },
+    {
+      "source": "apps_backend_src_modules_auth_routes",
+      "target": "apps_backend_src_middlewares_auth_requireauth",
+      "edge_count": 2,
+      "relations": [
+        "imports",
+        "indirect_call"
+      ],
+      "source_files": [
+        "apps/backend/src/modules/auth/routes.ts"
+      ],
+      "source_locations": [
+        "L5",
+        "L69"
+      ],
+      "contexts": [
+        "argument",
+        "import"
+      ]
+    },
+    {
+      "source": "apps_backend_src_modules_auth_routes",
+      "target": "apps_backend_src_modules_auth_routes_cookieoptions",
+      "edge_count": 2,
+      "relations": [
+        "calls",
+        "contains"
+      ],
+      "source_files": [
+        "apps/backend/src/modules/auth/routes.ts"
+      ],
+      "source_locations": [
+        "L11",
+        "L39"
+      ],
+      "contexts": [
+        "",
+        "call"
+      ]
+    },
+    {
+      "source": "apps_backend_src_modules_auth_routes",
+      "target": "apps_backend_src_modules_auth_routes_checkorigin",
+      "edge_count": 2,
+      "relations": [
+        "contains",
+        "indirect_call"
+      ],
+      "source_files": [
+        "apps/backend/src/modules/auth/routes.ts"
+      ],
+      "source_locations": [
+        "L17",
+        "L22"
+      ],
+      "contexts": [
+        "",
+        "argument"
+      ]
+    }
+  ]
+}

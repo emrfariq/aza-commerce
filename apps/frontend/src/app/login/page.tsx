@@ -44,11 +44,7 @@ export default function LoginPage() {
             <span className="dot" /> YOUR BUSINESS, IN ORDER
           </span>
           <h1>
-            Lebih teratur.
-            <br />
-            Lebih banyak
-            <br />
-            <em>peluang tumbuh.</em>
+            AZACOMMERCE.
           </h1>
           <p>
             Produk, pelanggan, dan setiap penjualan.
